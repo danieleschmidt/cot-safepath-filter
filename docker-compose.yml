@@ -1,0 +1,251 @@
+version: '3.8'
+
+# CoT SafePath Filter - Docker Compose Configuration
+# Complete development and production environment setup
+
+services:
+  # Main application service
+  safepath-filter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        BUILD_DATE: ${BUILD_DATE:-}
+        VERSION: ${VERSION:-latest}
+        VCS_REF: ${VCS_REF:-}
+    image: cot-safepath-filter:${VERSION:-latest}
+    container_name: safepath-filter
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql://safepath:${POSTGRES_PASSWORD:-safepath123}@postgres:5432/safepath
+      - REDIS_URL=redis://redis:6379/0
+      - PROMETHEUS_ENABLED=true
+      - SENTRY_DSN=${SENTRY_DSN:-}
+    volumes:
+      - safepath_data:/app/data
+      - safepath_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - safepath-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.safepath.rule=Host(`safepath.local`)"
+      - "traefik.http.services.safepath.loadbalancer.server.port=8080"
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: safepath-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=safepath
+      - POSTGRES_USER=safepath
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-safepath123}
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U safepath -d safepath"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - safepath-network
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=200
+      -c shared_buffers=256MB
+
+  # Redis cache and session store
+  redis:
+    image: redis:7-alpine
+    container_name: safepath-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - safepath-network
+
+  # Monitoring dashboard
+  safepath-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    image: cot-safepath-filter:${VERSION:-latest}
+    container_name: safepath-monitor
+    restart: unless-stopped
+    command: safepath-monitor
+    ports:
+      - "${MONITOR_PORT:-9090}:9090"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DATABASE_URL=postgresql://safepath:${POSTGRES_PASSWORD:-safepath123}@postgres:5432/safepath
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - safepath-filter
+      - postgres
+      - redis
+    networks:
+      - safepath-network
+
+  # Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: safepath-prometheus
+    restart: unless-stopped
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - safepath-network
+
+  # Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: safepath-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - safepath-network
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: safepath-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - safepath-filter
+    networks:
+      - safepath-network
+    profiles:
+      - with-nginx
+
+  # Development services
+  safepath-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: safepath-dev
+    volumes:
+      - .:/workspace
+      - safepath_dev_cache:/home/dev/.cache
+    ports:
+      - "${DEV_PORT:-8081}:8080"
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+    networks:
+      - safepath-network
+    profiles:
+      - development
+    command: tail -f /dev/null
+
+  # Test runner service
+  safepath-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: safepath-test
+    volumes:
+      - .:/workspace
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql://safepath:${POSTGRES_PASSWORD:-safepath123}@postgres:5432/safepath_test
+      - REDIS_URL=redis://redis:6379/1
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - safepath-network
+    profiles:
+      - testing
+    command: pytest tests/ -v --cov=src/cot_safepath
+
+# Named volumes for persistent data
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  safepath_data:
+    driver: local
+  safepath_logs:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  nginx_logs:
+    driver: local
+  safepath_dev_cache:
+    driver: local
+
+# Custom network
+networks:
+  safepath-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

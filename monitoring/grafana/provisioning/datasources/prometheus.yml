@@ -1,0 +1,47 @@
+# Grafana datasource configuration for Prometheus
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      queryTimeout: "60s"
+      httpMethod: "GET"
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger
+    secureJsonData: {}
+    
+  - name: Prometheus-Alertmanager
+    type: prometheus
+    access: proxy
+    url: http://alertmanager:9093
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: "30s"
+      httpMethod: "GET"
+
+  # Optional: Add Jaeger for distributed tracing
+  # - name: Jaeger
+  #   type: jaeger
+  #   uid: jaeger
+  #   access: proxy
+  #   url: http://jaeger:16686
+  #   isDefault: false
+  #   editable: true
+
+  # Optional: Add Loki for log aggregation
+  # - name: Loki
+  #   type: loki
+  #   access: proxy
+  #   url: http://loki:3100
+  #   isDefault: false
+  #   editable: true
+  #   jsonData:
+  #     maxLines: 1000
