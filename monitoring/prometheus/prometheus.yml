@@ -1,0 +1,124 @@
+# Prometheus configuration for CoT SafePath Filter monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'safepath-cluster'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Rules files for alerting
+rule_files:
+  - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # CoT SafePath Filter main application
+  - job_name: 'safepath-filter'
+    static_configs:
+      - targets: ['safepath-filter:8080']
+    metrics_path: /metrics
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    honor_timestamps: true
+    scheme: http
+    params:
+      format: ['prometheus']
+
+  # CoT SafePath Filter monitoring dashboard
+  - job_name: 'safepath-monitor'
+    static_configs:
+      - targets: ['safepath-monitor:9090']
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+  # PostgreSQL database metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Container metrics from cAdvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # Nginx metrics (if using nginx)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+    scrape_interval: 30s
+
+# Remote write configuration (optional - for long-term storage)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint.com/api/v1/write"
+#     basic_auth:
+#       username: "username"
+#       password: "password"
+
+# Recording rules for performance optimization
+recording_rules:
+  - name: safepath_filter_rules
+    interval: 30s
+    rules:
+      # Request rate over 5 minutes
+      - record: safepath_filter:request_rate_5m
+        expr: rate(safepath_filter_requests_total[5m])
+
+      # Error rate over 5 minutes
+      - record: safepath_filter:error_rate_5m
+        expr: rate(safepath_filter_requests_total{status=~"4..|5.."}[5m])
+
+      # Average response time over 5 minutes
+      - record: safepath_filter:response_time_avg_5m
+        expr: rate(safepath_filter_request_duration_seconds_sum[5m]) / rate(safepath_filter_request_duration_seconds_count[5m])
+
+      # Filter success rate
+      - record: safepath_filter:filter_success_rate_5m
+        expr: rate(safepath_filter_operations_total{operation="filter", result="success"}[5m]) / rate(safepath_filter_operations_total{operation="filter"}[5m])
+
+      # Safety score distribution
+      - record: safepath_filter:safety_score_avg_5m
+        expr: rate(safepath_filter_safety_score_sum[5m]) / rate(safepath_filter_safety_score_count[5m])
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus/data
+    retention.time: 30d
+    retention.size: 10GB
+    wal-compression: true
+
+# Web configuration
+web:
+  enable_lifecycle: true
+  enable_admin_api: true
+  console.libraries: /etc/prometheus/console_libraries
+  console.templates: /etc/prometheus/consoles
