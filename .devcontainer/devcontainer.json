@@ -1,56 +1,118 @@
 {
   "name": "CoT SafePath Filter Development",
-  "dockerFile": "Dockerfile",
-  "context": "..",
+  "dockerComposeFile": "../docker-compose.dev.yml",
+  "service": "dev",
   "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  
   "features": {
     "ghcr.io/devcontainers/features/python:1": {
       "version": "3.11",
-      "installTools": true
+      "installTools": true,
+      "optimize": true
     },
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "18"
+      "version": "20",
+      "nodeGypDependencies": true
     },
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-    "ghcr.io/devcontainers/features/git:1": {}
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/git:1": {
+      "ppa": true,
+      "version": "latest"
+    }
   },
+
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-python.black-formatter",
-        "ms-python.flake8",
         "ms-python.isort",
+        "ms-python.mypy-type-checker",
         "ms-python.pylint",
-        "ms-toolsai.jupyter",
         "charliermarsh.ruff",
-        "tamasfe.even-better-toml",
+        "ms-python.debugpy",
+        "ms-toolsai.jupyter",
         "redhat.vscode-yaml",
-        "ms-vscode.makefile-tools",
+        "ms-vscode.vscode-json",
+        "ms-azuretools.vscode-docker",
         "GitHub.copilot",
         "GitHub.vscode-pull-request-github",
-        "ms-vscode.vscode-json"
+        "streetsidesoftware.code-spell-checker",
+        "esbenp.prettier-vscode",
+        "ms-vscode.test-adapter-converter",
+        "ms-vscode.extension-test-runner",
+        "tamasfe.even-better-toml",
+        "ms-vscode.makefile-tools"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
-        "python.formatting.provider": "black",
         "python.linting.enabled": true,
         "python.linting.pylintEnabled": true,
-        "python.linting.flake8Enabled": true,
+        "python.linting.mypyEnabled": true,
+        "python.formatting.provider": "black",
+        "python.formatting.blackArgs": ["--line-length=88"],
+        "python.sortImports.args": ["--profile", "black"],
         "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests/"],
         "python.testing.unittestEnabled": false,
         "editor.formatOnSave": true,
         "editor.codeActionsOnSave": {
-          "source.organizeImports": true
+          "source.organizeImports": true,
+          "source.fixAll": true
         },
-        "files.autoSave": "onFocusChange"
+        "files.exclude": {
+          "**/__pycache__": true,
+          "**/.pytest_cache": true,
+          "**/.mypy_cache": true,
+          "**/.coverage": true,
+          "**/htmlcov": true,
+          "**/.ruff_cache": true
+        },
+        "files.autoSave": "onFocusChange",
+        "terminal.integrated.shell.linux": "/bin/bash",
+        "git.autofetch": true,
+        "git.enableSmartCommit": true,
+        "yaml.schemas": {
+          "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml"
+        }
       }
     }
   },
-  "forwardPorts": [8000, 8080, 5000],
-  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "forwardPorts": [8080, 5432, 6379, 3000, 9090, 3001],
+  "portsAttributes": {
+    "8080": {
+      "label": "SafePath API",
+      "onAutoForward": "notify"
+    },
+    "5432": {
+      "label": "PostgreSQL"
+    },
+    "6379": {
+      "label": "Redis"
+    },
+    "3000": {
+      "label": "Grafana"
+    },
+    "9090": {
+      "label": "Prometheus"
+    },
+    "3001": {
+      "label": "Dev Server"
+    }
+  },
+
+  "postCreateCommand": "pip install -e '.[dev,test,security]' && pre-commit install && python -m pytest --version",
+  "postStartCommand": "docker-compose -f docker-compose.dev.yml up -d postgres redis",
+
   "remoteUser": "vscode",
+  "containerUser": "vscode",
+
   "mounts": [
+    "source=safepath-node-modules,target=${containerWorkspaceFolder}/node_modules,type=volume",
+    "source=safepath-pip-cache,target=/home/vscode/.cache/pip,type=volume",
     "source=${localWorkspaceFolder}/.git,target=/workspace/.git,type=bind,consistency=cached"
   ]
 }
