@@ -1,0 +1,459 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., v1.0.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Validate release
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Determine version
+      id: version
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          VERSION="${{ github.event.inputs.version }}"
+          IS_PRERELEASE="${{ github.event.inputs.prerelease }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+          # Check if it's a pre-release (contains alpha, beta, rc)
+          if [[ "$VERSION" =~ (alpha|beta|rc) ]]; then
+            IS_PRERELEASE="true"
+          else
+            IS_PRERELEASE="false"
+          fi
+        fi
+        
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+        echo "Release version: $VERSION"
+        echo "Is pre-release: $IS_PRERELEASE"
+
+    - name: Validate version format
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+          echo "❌ Invalid version format: $VERSION"
+          echo "Expected format: v1.2.3 or v1.2.3-alpha1"
+          exit 1
+        fi
+        echo "✅ Version format is valid"
+
+    - name: Check if tag exists
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          echo "❌ Tag $VERSION already exists"
+          exit 1
+        fi
+        echo "✅ Tag $VERSION does not exist"
+
+  # Run full test suite
+  test:
+    name: Full Test Suite
+    uses: ./.github/workflows/ci.yml
+    needs: validate
+    secrets: inherit
+
+  # Build release artifacts
+  build:
+    name: Build Release Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [validate, test]
+    outputs:
+      artifacts: ${{ steps.build.outputs.artifacts }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Update version in pyproject.toml
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        # Remove 'v' prefix for Python version
+        PYTHON_VERSION="${VERSION#v}"
+        sed -i 's/version = "[^"]*"/version = "'$PYTHON_VERSION'"/' pyproject.toml
+        echo "Updated version to $PYTHON_VERSION"
+
+    - name: Build Python packages
+      id: build
+      run: |
+        python -m build
+        
+        # List built artifacts
+        echo "Built artifacts:"
+        ls -la dist/
+        
+        # Output artifact names
+        ARTIFACTS=$(ls dist/ | tr '\n' ' ')
+        echo "artifacts=$ARTIFACTS" >> $GITHUB_OUTPUT
+
+    - name: Verify packages
+      run: |
+        python -m twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-packages
+        path: dist/
+        retention-days: 30
+
+  # Build and push Docker images
+  docker:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate, test]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=semver,pattern={{version}},value=${{ needs.validate.outputs.version }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ needs.validate.outputs.version }}
+          type=semver,pattern={{major}},value=${{ needs.validate.outputs.version }}
+          type=raw,value=latest,enable=${{ needs.validate.outputs.is_prerelease == 'false' }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        target: production
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VERSION=${{ needs.validate.outputs.version }}
+          VCS_REF=${{ github.sha }}
+
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate.outputs.version }}
+        format: spdx-json
+        output-file: sbom.spdx.json
+
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v4
+      with:
+        name: sbom
+        path: sbom.spdx.json
+        retention-days: 90
+
+  # Security scan for release
+  security-scan:
+    name: Security Scan for Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [validate, docker]
+    permissions:
+      security-events: write
+
+    steps:
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate.outputs.version }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: Check for critical vulnerabilities
+      run: |
+        # Fail if critical vulnerabilities are found
+        if trivy image --severity CRITICAL --exit-code 1 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.validate.outputs.version }}; then
+          echo "✅ No critical vulnerabilities found"
+        else
+          echo "❌ Critical vulnerabilities detected in release image"
+          exit 1
+        fi
+
+  # Generate release notes
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: validate
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        VERSION="${{ needs.validate.outputs.version }}"
+        
+        # Get previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [[ -z "$PREVIOUS_TAG" ]]; then
+          echo "No previous tag found, generating changelog from beginning"
+          COMMIT_RANGE="HEAD"
+        else
+          echo "Generating changelog from $PREVIOUS_TAG to $VERSION"
+          COMMIT_RANGE="$PREVIOUS_TAG..HEAD"
+        fi
+        
+        # Generate changelog
+        CHANGELOG=$(cat << 'EOF'
+        ## What's Changed
+        
+        ### 🚀 Features
+        $(git log $COMMIT_RANGE --pretty=format:"- %s (%h)" --grep="feat" --grep="feature" | head -20)
+        
+        ### 🐛 Bug Fixes
+        $(git log $COMMIT_RANGE --pretty=format:"- %s (%h)" --grep="fix" --grep="bug" | head -20)
+        
+        ### 🔒 Security
+        $(git log $COMMIT_RANGE --pretty=format:"- %s (%h)" --grep="security" --grep="vulnerability" | head -10)
+        
+        ### 📚 Documentation
+        $(git log $COMMIT_RANGE --pretty=format:"- %s (%h)" --grep="docs" --grep="documentation" | head -10)
+        
+        ### 🔧 Other Changes
+        $(git log $COMMIT_RANGE --pretty=format:"- %s (%h)" --grep="chore" --grep="refactor" | head -10)
+        
+        **Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$VERSION
+        EOF
+        )
+        
+        # Process the changelog to handle empty sections
+        PROCESSED_CHANGELOG=$(echo "$CHANGELOG" | sed '/^$/d' | sed 's/^- $//')
+        
+        # Save to file and output
+        echo "$PROCESSED_CHANGELOG" > changelog.md
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        echo "$PROCESSED_CHANGELOG" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Upload changelog
+      uses: actions/upload-artifact@v4
+      with:
+        name: changelog
+        path: changelog.md
+        retention-days: 30
+
+  # Publish to PyPI
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate, test, build, security-scan]
+    environment: 
+      name: pypi
+      url: https://pypi.org/project/cot-safepath-filter/
+    permissions:
+      id-token: write  # For trusted publishing
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: python-packages
+        path: dist/
+
+    - name: Publish to Test PyPI
+      if: needs.validate.outputs.is_prerelease == 'true'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        verbose: true
+
+    - name: Publish to PyPI
+      if: needs.validate.outputs.is_prerelease == 'false'
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+
+  # Create GitHub release
+  github-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate, build, changelog, publish-pypi]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.validate.outputs.version }}
+        name: Release ${{ needs.validate.outputs.version }}
+        body: ${{ needs.changelog.outputs.changelog }}
+        prerelease: ${{ needs.validate.outputs.is_prerelease == 'true' }}
+        draft: false
+        files: |
+          python-packages/*
+          sbom/sbom.spdx.json
+          changelog/changelog.md
+        generate_release_notes: true
+
+  # Deploy to staging (for pre-releases) or production
+  deploy:
+    name: Deploy Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [validate, github-release]
+    environment: 
+      name: ${{ needs.validate.outputs.is_prerelease == 'true' && 'staging' || 'production' }}
+      url: ${{ needs.validate.outputs.is_prerelease == 'true' && 'https://staging.safepath.terragonlabs.com' || 'https://safepath.terragonlabs.com' }}
+
+    steps:
+    - name: Deploy to staging
+      if: needs.validate.outputs.is_prerelease == 'true'
+      run: |
+        echo "🚀 Deploying ${{ needs.validate.outputs.version }} to staging..."
+        # Add staging deployment commands here
+
+    - name: Deploy to production
+      if: needs.validate.outputs.is_prerelease == 'false'
+      run: |
+        echo "🚀 Deploying ${{ needs.validate.outputs.version }} to production..."
+        # Add production deployment commands here
+
+    - name: Run post-deployment tests
+      run: |
+        echo "🧪 Running post-deployment tests..."
+        # Add deployment verification tests
+
+  # Update documentation
+  update-docs:
+    name: Update Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate, github-release]
+    if: needs.validate.outputs.is_prerelease == 'false'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install documentation dependencies
+      run: |
+        pip install -e ".[docs]"
+
+    - name: Build documentation
+      run: |
+        mkdocs build
+
+    - name: Deploy documentation
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./site
+        cname: docs.safepath.terragonlabs.com
+
+  # Notify release completion
+  notify:
+    name: Notify Release Completion
+    runs-on: ubuntu-latest
+    needs: [validate, deploy, update-docs]
+    if: always()
+
+    steps:
+    - name: Notify success
+      if: needs.deploy.result == 'success'
+      run: |
+        echo "✅ Release ${{ needs.validate.outputs.version }} completed successfully!"
+        # Add notification logic (Slack, Discord, email, etc.)
+
+    - name: Notify failure
+      if: needs.deploy.result == 'failure'
+      run: |
+        echo "❌ Release ${{ needs.validate.outputs.version }} failed!"
+        # Add failure notification logic
+
+    - name: Update release status
+      run: |
+        echo "📊 Release metrics:"
+        echo "- Version: ${{ needs.validate.outputs.version }}"
+        echo "- Pre-release: ${{ needs.validate.outputs.is_prerelease }}"
+        echo "- Deployment: ${{ needs.deploy.result }}"
+        echo "- Documentation: ${{ needs.update-docs.result }}"

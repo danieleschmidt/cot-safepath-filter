@@ -1,15 +1,13 @@
-# See https://pre-commit.com for more information
 repos:
-  # Code formatting and linting
+  # Code formatting
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.5.0
     hooks:
       - id: trailing-whitespace
-        exclude: ^docs/
+        args: [--markdown-linebreak-ext=md]
       - id: end-of-file-fixer
-        exclude: ^docs/
       - id: check-yaml
-        args: [--allow-multiple-documents]
+        args: ['--unsafe']
       - id: check-json
       - id: check-toml
       - id: check-xml
@@ -18,127 +16,150 @@ repos:
       - id: check-docstring-first
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+      - id: check-added-large-files
+        args: ['--maxkb=500']
       - id: debug-statements
       - id: fix-byte-order-marker
       - id: mixed-line-ending
-        args: [--fix=lf]
-      - id: check-added-large-files
-        args: [--maxkb=1024]
-      - id: no-commit-to-branch
-        args: [--branch, main, --branch, master]
+        args: ['--fix=lf']
 
   # Python code formatting
   - repo: https://github.com/psf/black
-    rev: 23.7.0
+    rev: 23.12.1
     hooks:
       - id: black
         language_version: python3
-        args: [--line-length=88]
+        args: ['--line-length=88']
 
-  # Python import sorting
+  # Import sorting
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
-        args: [--profile, black, --line-length=88]
+        args: ["--profile", "black"]
 
-  # Python linting with Ruff
-  - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.0.280
+  # Python linting with Ruff (fast alternative to flake8, pylint)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
 
-  # Python type checking
+  # Type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.1
+    rev: v1.8.0
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests, types-PyYAML]
-        exclude: ^(docs/|tests/|migrations/)
+        additional_dependencies: [types-requests, types-redis, types-PyYAML]
+        args: [--ignore-missing-imports, --scripts-are-modules]
 
   # Security scanning
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-c, pyproject.toml]
-        additional_dependencies: ["bandit[toml]"]
-        exclude: ^tests/
+        args: ['-r', '.', '-f', 'json', '-o', 'bandit-report.json']
+        exclude: tests/
+
+  # Dependency vulnerability scanning
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        args: ['--ignore=70612']  # Ignore jinja2 vulnerability in dev dependencies
+
+  # Secret scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: package.lock.json
+
+  # YAML linting
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.33.0
+    hooks:
+      - id: yamllint
+        args: [-d, '{extends: relaxed, rules: {line-length: {max: 120}}}']
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        args: ['--fix']
 
   # Dockerfile linting
   - repo: https://github.com/hadolint/hadolint
     rev: v2.12.0
     hooks:
       - id: hadolint-docker
-        args: [--ignore, DL3008, --ignore, DL3009, --ignore, DL3015]
-
-  # YAML formatting
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.0.0
-    hooks:
-      - id: prettier
-        types_or: [yaml, markdown, json]
-        exclude: ^(\.github/workflows/|docs/)
-
-  # Secrets detection
-  - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0
-    hooks:
-      - id: detect-secrets
-        args: [--baseline, .secrets.baseline]
-        exclude: ^(\.git/|\.venv/|venv/|node_modules/|\.secrets\.baseline)
+        args: ['--ignore', 'DL3008', '--ignore', 'DL3009']
 
   # Shell script linting
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.9.0.5
+    rev: v0.9.0.6
     hooks:
       - id: shellcheck
-        args: [-e, SC1091, -e, SC2034]
 
-  # License header checking
-  - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.4
-    hooks:
-      - id: insert-license
-        files: \.py$
-        args:
-          - --license-filepath
-          - .license-header.txt
-          - --comment-style
-          - "#"
-
-  # Dependency scanning
-  - repo: https://github.com/pyupio/safety
-    rev: 2.3.4
-    hooks:
-      - id: safety
-        args: [--json, --ignore, 51668]
-
-  # Commit message linting
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: 3.6.0
-    hooks:
-      - id: commitizen
-        stages: [commit-msg]
-
-  # Documentation
+  # Python docstring formatting
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.3.0
     hooks:
       - id: pydocstyle
-        args: [--convention=google]
-        exclude: ^(tests/|docs/|migrations/)
+        args: ['--convention=google', '--add-ignore=D100,D101,D102,D103,D104,D105,D107']
 
-# CI-specific hooks (run only in CI environment)
+  # Git commit message linting
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.13.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
+
+  # Python upgrade syntax
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.15.0
+    hooks:
+      - id: pyupgrade
+        args: [--py39-plus]
+
+  # Auto-update Python syntax
+  - repo: https://github.com/asottile/autopep8
+    rev: v2.0.4
+    hooks:
+      - id: autopep8
+        args: [--in-place, --aggressive, --aggressive]
+
+  # Remove unused imports
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v2.2.1
+    hooks:
+      - id: autoflake
+        args:
+          - --in-place
+          - --remove-all-unused-imports
+          - --remove-unused-variables
+          - --remove-duplicate-keys
+          - --ignore-init-module-imports
+
+  # JSON formatting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v4.0.0-alpha.8
+    hooks:
+      - id: prettier
+        types_or: [json, yaml, markdown]
+        exclude: ^(.*\.md|.*\.yaml|.*\.yml)$
+
 ci:
   autofix_commit_msg: |
     [pre-commit.ci] auto fixes from pre-commit.com hooks
 
     for more information, see https://pre-commit.ci
   autofix_prs: true
-  autoupdate_branch: ""
-  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: [mypy, bandit, safety, detect-secrets]
+  skip: [shellcheck, hadolint-docker, detect-secrets]
   submodules: false

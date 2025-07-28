@@ -1,0 +1,444 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Code quality and linting
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test]"
+
+    - name: Run pre-commit hooks
+      uses: pre-commit/action@v3.0.0
+      with:
+        extra_args: --all-files
+
+    - name: Check Python formatting with Black
+      run: black --check --diff src/ tests/
+
+    - name: Check import sorting with isort
+      run: isort --check-only --diff src/ tests/
+
+    - name: Lint with Ruff
+      run: ruff check src/ tests/
+
+    - name: Type check with MyPy
+      run: mypy src/
+
+    - name: Check for Python syntax errors
+      run: python -m py_compile $(find src/ -name "*.py")
+
+  # Security scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,security]"
+
+    - name: Run Bandit security scan
+      run: |
+        bandit -r src/ -f json -o bandit-report.json || true
+        bandit -r src/ -f sarif -o bandit-results.sarif || true
+
+    - name: Upload Bandit SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: bandit-results.sarif
+
+    - name: Run Safety dependency scan
+      run: |
+        safety check --json --output safety-report.json || true
+
+    - name: Run pip-audit
+      run: |
+        pip-audit --format=json --output=pip-audit-report.json || true
+
+    - name: Run Semgrep security scan
+      uses: returntocorp/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/python
+        generateSarif: "1"
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          pip-audit-report.json
+        retention-days: 30
+
+  # Unit and integration tests
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        test-type: ['unit', 'integration']
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: safepath_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test,integrations]"
+
+    - name: Wait for services
+      run: |
+        timeout 60 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+        timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping; do sleep 1; done'
+
+    - name: Set up test database
+      run: |
+        PGPASSWORD=postgres psql -h localhost -U postgres -d safepath_test -f scripts/init-db.sql
+
+    - name: Run unit tests
+      if: matrix.test-type == 'unit'
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/safepath_test
+        REDIS_URL: redis://localhost:6379/1
+      run: |
+        pytest tests/unit/ -v \
+          --cov=src/cot_safepath \
+          --cov-report=term-missing \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-fail-under=80 \
+          --junit-xml=test-results-unit-${{ matrix.python-version }}.xml
+
+    - name: Run integration tests
+      if: matrix.test-type == 'integration'
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/safepath_test
+        REDIS_URL: redis://localhost:6379/1
+      run: |
+        pytest tests/integration/ -v \
+          --junit-xml=test-results-integration-${{ matrix.python-version }}.xml
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}-${{ matrix.python-version }}
+        path: |
+          test-results-*.xml
+          htmlcov/
+          coverage.xml
+        retention-days: 30
+
+    - name: Upload coverage to Codecov
+      if: matrix.test-type == 'unit' && matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  # Performance tests
+  performance:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test,performance]"
+
+    - name: Run performance tests
+      run: |
+        pytest tests/performance/ -v \
+          --benchmark-only \
+          --benchmark-json=benchmark-results.json
+
+    - name: Upload performance results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: performance-results
+        path: benchmark-results.json
+        retention-days: 30
+
+    - name: Performance regression check
+      run: |
+        python scripts/check-performance-regression.py benchmark-results.json
+
+  # Build and test Docker images
+  docker:
+    name: Docker Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [lint, security]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      if: github.event_name != 'pull_request'
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=sha-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        target: production
+        platforms: linux/amd64,linux/arm64
+        push: ${{ github.event_name != 'pull_request' }}
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        build-args: |
+          BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+          VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          VCS_REF=${{ github.sha }}
+
+    - name: Test Docker image
+      run: |
+        docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} --version
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # End-to-end tests
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [docker]
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,test]"
+        pip install playwright
+        playwright install
+
+    - name: Start services with Docker Compose
+      run: |
+        docker-compose -f docker-compose.yml up -d
+        sleep 30  # Wait for services to be ready
+
+    - name: Wait for application to be ready
+      run: |
+        timeout 120 bash -c 'until curl -f http://localhost:8080/health; do sleep 2; done'
+
+    - name: Run end-to-end tests
+      run: |
+        pytest tests/e2e/ -v \
+          --junit-xml=e2e-test-results.xml
+
+    - name: Collect docker logs
+      if: always()
+      run: |
+        docker-compose logs > docker-logs.txt
+
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          e2e-test-results.xml
+          docker-logs.txt
+        retention-days: 30
+
+    - name: Stop services
+      if: always()
+      run: docker-compose down
+
+  # Quality gate
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint, security, test, performance, docker]
+    if: always()
+    
+    steps:
+    - name: Check quality gate
+      run: |
+        echo "Lint job status: ${{ needs.lint.result }}"
+        echo "Security job status: ${{ needs.security.result }}"
+        echo "Test job status: ${{ needs.test.result }}"
+        echo "Performance job status: ${{ needs.performance.result }}"
+        echo "Docker job status: ${{ needs.docker.result }}"
+        
+        if [[ "${{ needs.lint.result }}" != "success" ]]; then
+          echo "❌ Lint checks failed"
+          exit 1
+        fi
+        
+        if [[ "${{ needs.security.result }}" != "success" ]]; then
+          echo "❌ Security checks failed"
+          exit 1
+        fi
+        
+        if [[ "${{ needs.test.result }}" != "success" ]]; then
+          echo "❌ Tests failed"
+          exit 1
+        fi
+        
+        if [[ "${{ needs.docker.result }}" != "success" ]]; then
+          echo "❌ Docker build failed"
+          exit 1
+        fi
+        
+        echo "✅ All quality checks passed!"
+
+  # Notification
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [quality-gate, e2e]
+    if: always() && github.event_name == 'push'
+    
+    steps:
+    - name: Notify on success
+      if: needs.quality-gate.result == 'success' && needs.e2e.result == 'success'
+      run: |
+        echo "✅ CI pipeline completed successfully for ${{ github.sha }}"
+        # Add Slack/Discord/email notification here
+
+    - name: Notify on failure
+      if: needs.quality-gate.result == 'failure' || needs.e2e.result == 'failure'
+      run: |
+        echo "❌ CI pipeline failed for ${{ github.sha }}"
+        # Add Slack/Discord/email notification here
