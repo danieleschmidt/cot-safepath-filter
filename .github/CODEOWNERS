@@ -1,0 +1,38 @@
+# CODEOWNERS for cot-safepath-filter
+# This file defines who is responsible for code review and maintenance
+
+# Global ownership - require at least one maintainer approval
+*                           @danieleschmidt
+
+# Core library code - requires security and architecture review
+/src/                       @danieleschmidt
+/src/cot_safepath/core/     @danieleschmidt
+/src/cot_safepath/security/ @danieleschmidt
+
+# Configuration and infrastructure
+/pyproject.toml             @danieleschmidt
+/Dockerfile                 @danieleschmidt
+/docker-compose*.yml        @danieleschmidt
+/Makefile                   @danieleschmidt
+
+# Security-sensitive files - require security team review
+/security/                  @danieleschmidt
+/.pre-commit-config.yaml    @danieleschmidt
+/SECURITY.md               @danieleschmidt
+
+# Documentation - require documentation review
+/docs/                      @danieleschmidt
+/README.md                  @danieleschmidt
+
+# GitHub workflows and templates
+/.github/                   @danieleschmidt
+
+# Testing infrastructure
+/tests/                     @danieleschmidt
+/pytest.ini               @danieleschmidt
+
+# Monitoring and observability
+/monitoring/               @danieleschmidt
+
+# Build and deployment scripts
+/scripts/                  @danieleschmidt
