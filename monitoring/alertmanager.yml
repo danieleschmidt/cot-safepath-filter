@@ -1,0 +1,224 @@
+# Alertmanager Configuration for CoT SafePath Filter
+# Advanced alerting and notification routing
+
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@terragonlabs.com'
+  smtp_auth_username: 'alerts@terragonlabs.com'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  slack_api_url: '${SLACK_API_URL}'
+
+# Inhibition rules to reduce noise
+inhibit_rules:
+  # Inhibit lower severity alerts when higher severity is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+  # Inhibit specific alert combinations
+  - source_match:
+      alertname: 'SafePathDown'
+    target_match_re:
+      alertname: 'SafePath.*'
+    equal: ['instance']
+
+# Routing configuration
+route:
+  group_by: ['alertname', 'component']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default'
+  
+  routes:
+    # Critical security alerts - immediate notification
+    - match:
+        severity: critical
+        component: security
+      receiver: 'security-team-critical'
+      group_wait: 0s
+      repeat_interval: 30m
+      continue: true
+
+    # Infrastructure critical alerts
+    - match:
+        severity: critical
+        component: infrastructure
+      receiver: 'ops-team-critical'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # AI model performance issues
+    - match:
+        component: ai-model
+      receiver: 'ml-team'
+      group_wait: 1m
+      repeat_interval: 2h
+
+    # Business logic alerts
+    - match:
+        component: business-logic
+      receiver: 'product-team'
+      group_wait: 5m
+      repeat_interval: 6h
+
+    # SLA breaches - executive notification
+    - match:
+        component: sla
+      receiver: 'executive-team'
+      group_wait: 0s
+      repeat_interval: 2h
+      continue: true
+
+    # Dependency issues
+    - match:
+        component: dependencies
+      receiver: 'ops-team'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # Warning level alerts
+    - match:
+        severity: warning
+      receiver: 'general-warnings'
+      group_wait: 2m
+      repeat_interval: 8h
+
+# Receiver configurations
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'devops@terragonlabs.com'
+        subject: '[SafePath] {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+
+  - name: 'security-team-critical'
+    slack_configs:
+      - api_url: '${SLACK_SECURITY_WEBHOOK}'
+        channel: '#security-alerts'
+        color: 'danger'
+        title: 'CRITICAL SECURITY ALERT - SafePath'
+        text: |
+          {{ range .Alerts }}
+          🚨 **{{ .Annotations.summary }}**
+          
+          **Description:** {{ .Annotations.description }}
+          **Severity:** {{ .Labels.severity }}
+          **Component:** {{ .Labels.component }}
+          **Runbook:** {{ .Annotations.runbook_url }}
+          {{ end }}
+    email_configs:
+      - to: 'security@terragonlabs.com'
+        subject: '🚨 SECURITY CRITICAL - SafePath Alert'
+        body: |
+          IMMEDIATE ACTION REQUIRED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Component: {{ .Labels.component }}
+          Runbook: {{ .Annotations.runbook_url }}
+          {{ end }}
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_SECURITY_KEY}'
+        description: 'SafePath Security Alert: {{ .GroupLabels.alertname }}'
+        severity: 'critical'
+
+  - name: 'ops-team-critical'
+    slack_configs:
+      - api_url: '${SLACK_OPS_WEBHOOK}'
+        channel: '#ops-alerts'
+        color: 'danger'
+        title: 'Critical Infrastructure Alert - SafePath'
+        text: |
+          {{ range .Alerts }}
+          ⚠️ **{{ .Annotations.summary }}**
+          
+          **Description:** {{ .Annotations.description }}
+          **Component:** {{ .Labels.component }}
+          **Runbook:** {{ .Annotations.runbook_url }}
+          {{ end }}
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_OPS_KEY}'
+        description: 'SafePath Infrastructure Alert: {{ .GroupLabels.alertname }}'
+        severity: 'critical'
+
+  - name: 'ops-team'
+    slack_configs:
+      - api_url: '${SLACK_OPS_WEBHOOK}'
+        channel: '#ops'
+        color: 'warning'
+        title: 'Infrastructure Alert - SafePath'
+
+  - name: 'ml-team'
+    slack_configs:
+      - api_url: '${SLACK_ML_WEBHOOK}'
+        channel: '#ml-alerts'
+        color: 'warning'
+        title: 'AI Model Alert - SafePath'
+        text: |
+          {{ range .Alerts }}
+          🤖 **{{ .Annotations.summary }}**
+          
+          **Description:** {{ .Annotations.description }}
+          **Model Component:** {{ .Labels.component }}
+          **Runbook:** {{ .Annotations.runbook_url }}
+          {{ end }}
+    email_configs:
+      - to: 'ml-team@terragonlabs.com'
+        subject: '[SafePath ML] {{ .GroupLabels.alertname }}'
+
+  - name: 'product-team'
+    slack_configs:
+      - api_url: '${SLACK_PRODUCT_WEBHOOK}'
+        channel: '#product-alerts'
+        color: 'warning'
+        title: 'Product/Business Logic Alert - SafePath'
+
+  - name: 'executive-team'
+    email_configs:
+      - to: 'executives@terragonlabs.com'
+        subject: '🚨 SLA BREACH - SafePath Service'
+        body: |
+          EXECUTIVE ATTENTION REQUIRED
+          
+          Service Level Agreement breach detected in SafePath Filter.
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Impact: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Action Required: {{ .Annotations.runbook_url }}
+          {{ end }}
+          
+          This incident may impact customer experience and requires immediate attention.
+    slack_configs:
+      - api_url: '${SLACK_EXECUTIVE_WEBHOOK}'
+        channel: '#executive-alerts'
+        color: 'danger'
+        title: '🚨 EXECUTIVE ALERT - SafePath SLA Breach'
+
+  - name: 'general-warnings'
+    slack_configs:
+      - api_url: '${SLACK_GENERAL_WEBHOOK}'
+        channel: '#safepath-alerts'
+        color: 'warning'
+        title: 'SafePath Warning Alert'
+        text: |
+          {{ range .Alerts }}
+          ⚠️ {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          {{ end }}
+
+# Time-based silencing for maintenance windows
+# (Would be configured via API during deployments)
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
