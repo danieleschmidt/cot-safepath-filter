@@ -1,0 +1,195 @@
+# Prometheus Alerting Rules for CoT SafePath Filter
+# Advanced monitoring and alerting configuration
+
+groups:
+  - name: safepath.application
+    rules:
+      - alert: SafePathHighErrorRate
+        expr: rate(safepath_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          component: application
+        annotations:
+          summary: "High error rate detected in SafePath Filter"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/high-error-rate"
+
+      - alert: SafePathHighLatency
+        expr: histogram_quantile(0.95, rate(safepath_request_duration_seconds_bucket[5m])) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "High latency detected in SafePath Filter"
+          description: "95th percentile latency is {{ $value }}s for the last 5 minutes"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/high-latency"
+
+      - alert: SafePathFilteringAnomalies
+        expr: rate(safepath_filtered_content_total[10m]) > 2 * rate(safepath_filtered_content_total[1h] offset 1h)
+        for: 5m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Unusual filtering activity detected"
+          description: "Filtering rate {{ $value | humanize }} is significantly higher than usual"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/filtering-anomalies"
+
+  - name: safepath.infrastructure
+    rules:
+      - alert: SafePathHighMemoryUsage
+        expr: process_resident_memory_bytes{job="safepath"} / 1024 / 1024 > 1024
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage in SafePath service"
+          description: "Memory usage is {{ $value | humanize }}MB"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/high-memory"
+
+      - alert: SafePathHighCPUUsage
+        expr: rate(process_cpu_seconds_total{job="safepath"}[5m]) * 100 > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage in SafePath service"
+          description: "CPU usage is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/high-cpu"
+
+      - alert: SafePathDiskSpaceLow
+        expr: (node_filesystem_free_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 10
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Low disk space on SafePath host"
+          description: "Disk space is {{ $value | humanizePercentage }} free"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/low-disk-space"
+
+  - name: safepath.security
+    rules:
+      - alert: SafePathSecurityBypassAttempt
+        expr: increase(safepath_security_bypass_attempts_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          component: security
+        annotations:
+          summary: "Multiple security bypass attempts detected"
+          description: "{{ $value }} bypass attempts in the last 5 minutes"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/security-bypass"
+
+      - alert: SafePathUnusualTrafficPattern
+        expr: rate(safepath_requests_total[5m]) > 3 * rate(safepath_requests_total[1h] offset 1h)
+        for: 3m
+        labels:
+          severity: warning
+          component: security
+        annotations:
+          summary: "Unusual traffic pattern detected"
+          description: "Request rate {{ $value | humanize }} is significantly higher than usual"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/unusual-traffic"
+
+      - alert: SafePathModelPerformanceDegraded
+        expr: safepath_model_accuracy < 0.85
+        for: 2m
+        labels:
+          severity: critical
+          component: ai-model
+        annotations:
+          summary: "AI model performance degraded"
+          description: "Model accuracy dropped to {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/model-degradation"
+
+  - name: safepath.dependencies
+    rules:
+      - alert: SafePathRedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: dependencies
+        annotations:
+          summary: "Redis instance is down"
+          description: "Redis connection is unavailable"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/redis-down"
+
+      - alert: SafePathDatabaseDown
+        expr: up{job="postgresql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: dependencies
+        annotations:
+          summary: "Database instance is down"
+          description: "PostgreSQL connection is unavailable"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/database-down"
+
+      - alert: SafePathDatabaseSlowQueries
+        expr: pg_stat_activity_max_tx_duration{datname="safepath"} > 30
+        for: 5m
+        labels:
+          severity: warning
+          component: dependencies
+        annotations:
+          summary: "Slow database queries detected"
+          description: "Longest transaction duration is {{ $value }}s"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/slow-queries"
+
+  - name: safepath.business-logic
+    rules:
+      - alert: SafePathFilterEfficiencyDrop
+        expr: (rate(safepath_filtered_content_total[1h]) / rate(safepath_requests_total[1h])) < 0.01
+        for: 10m
+        labels:
+          severity: warning
+          component: business-logic
+        annotations:
+          summary: "Filter efficiency appears low"
+          description: "Only {{ $value | humanizePercentage }} of requests are being filtered"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/low-filter-efficiency"
+
+      - alert: SafePathHighFalsePositiveRate
+        expr: rate(safepath_false_positives_total[1h]) / rate(safepath_filtered_content_total[1h]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          component: business-logic
+        annotations:
+          summary: "High false positive rate detected"
+          description: "False positive rate is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/high-false-positives"
+
+  - name: safepath.sla
+    rules:
+      - alert: SafePathSLABreach
+        expr: |
+          (
+            sum(rate(safepath_requests_total{status!~"5.."}[5m])) /
+            sum(rate(safepath_requests_total[5m]))
+          ) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          component: sla
+        annotations:
+          summary: "SLA breach - availability below 99.9%"
+          description: "Availability is {{ $value | humanizePercentage }}"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/sla-breach"
+
+      - alert: SafePathResponseTimeSLABreach
+        expr: histogram_quantile(0.99, rate(safepath_request_duration_seconds_bucket[5m])) > 1.0
+        for: 10m
+        labels:
+          severity: critical
+          component: sla
+        annotations:
+          summary: "Response time SLA breach"
+          description: "99th percentile response time is {{ $value }}s"
+          runbook_url: "https://docs.terragonlabs.com/runbooks/response-time-sla"

@@ -1,0 +1,346 @@
+# Chaos Engineering Configuration for CoT SafePath Filter
+# Resilience testing and failure injection
+
+version: 1.0.0
+title: "SafePath Filter Chaos Engineering"
+description: "Chaos experiments to validate SafePath Filter resilience"
+
+configuration:
+  # Experiment metadata
+  experiment_tracking:
+    enabled: true
+    storage: prometheus
+    metrics_endpoint: http://localhost:9090
+  
+  # Safety controls
+  safety:
+    abort_conditions:
+      - metric: "safepath_error_rate"
+        threshold: 0.5
+        duration: "30s"
+      - metric: "safepath_response_time_p99"
+        threshold: 5.0
+        duration: "60s"
+    
+    rollback_strategy: "immediate"
+    notification_channels:
+      - slack: "#chaos-engineering"
+      - email: "devops@terragonlabs.com"
+
+# Steady State Hypothesis
+steady_state_hypothesis:
+  title: "SafePath Filter is responding normally"
+  probes:
+    - name: "service-responds-to-health-check"
+      type: http
+      url: http://localhost:8080/health
+      timeout: 5
+      expected_status: 200
+    
+    - name: "error-rate-is-low"
+      type: prometheus
+      query: 'rate(safepath_requests_total{status=~"5.."}[5m])'
+      expected_value: 0.01
+      operator: "lt"
+    
+    - name: "response-time-acceptable"
+      type: prometheus
+      query: 'histogram_quantile(0.95, rate(safepath_request_duration_seconds_bucket[5m]))'
+      expected_value: 0.5
+      operator: "lt"
+
+# Chaos Experiments
+experiments:
+  
+  # Infrastructure Chaos
+  - name: "cpu-stress-test"
+    description: "Inject high CPU load to test performance under stress"
+    type: resource
+    target: container
+    parameters:
+      cpu_percent: 80
+      duration: 300  # 5 minutes
+    monitoring:
+      metrics:
+        - safepath_response_time_p95
+        - safepath_error_rate
+        - cpu_usage_percent
+    
+    validation:
+      - metric: safepath_error_rate
+        threshold: 0.05
+        fail_experiment: true
+  
+  - name: "memory-pressure-test"
+    description: "Create memory pressure to test graceful degradation"
+    type: resource
+    target: container
+    parameters:
+      memory_percent: 85
+      duration: 300
+    monitoring:
+      metrics:
+        - memory_usage_bytes
+        - safepath_response_time_p95
+        - safepath_error_rate
+
+  - name: "disk-pressure-test"
+    description: "Fill disk space to test disk pressure handling"
+    type: resource
+    target: filesystem
+    parameters:
+      fill_percent: 90
+      path: "/tmp"
+      duration: 180
+    monitoring:
+      metrics:
+        - disk_usage_percent
+        - safepath_error_rate
+
+  # Network Chaos
+  - name: "network-latency-injection"
+    description: "Inject network latency to test timeout handling"
+    type: network
+    target: container
+    parameters:
+      latency: "200ms"
+      jitter: "50ms"
+      correlation: "25%"
+      duration: 300
+    monitoring:
+      metrics:
+        - safepath_response_time_p95
+        - safepath_timeout_errors
+
+  - name: "network-packet-loss"
+    description: "Inject packet loss to test retry mechanisms"
+    type: network
+    target: container
+    parameters:
+      loss_percent: 5
+      correlation: "25%"
+      duration: 180
+    monitoring:
+      metrics:
+        - safepath_network_errors
+        - safepath_retry_count
+
+  - name: "network-partition"
+    description: "Simulate network partition for dependency isolation testing"
+    type: network
+    target: egress
+    parameters:
+      target_hosts:
+        - "redis:6379"
+        - "postgresql:5432"
+      block_duration: 120
+    monitoring:
+      metrics:
+        - safepath_dependency_errors
+        - safepath_fallback_activations
+
+  # Application Chaos
+  - name: "database-connection-chaos"
+    description: "Randomly close database connections"
+    type: application
+    target: database
+    parameters:
+      connection_kill_rate: 0.1  # Kill 10% of connections
+      interval: 30  # Every 30 seconds
+      duration: 300
+    monitoring:
+      metrics:
+        - database_connection_errors
+        - safepath_database_query_failures
+
+  - name: "redis-eviction-chaos"
+    description: "Force Redis key evictions to test cache resilience"
+    type: application
+    target: redis
+    parameters:
+      eviction_rate: 0.2  # Evict 20% of keys
+      interval: 45
+      duration: 240
+    monitoring:
+      metrics:
+        - redis_evicted_keys_total
+        - safepath_cache_miss_rate
+
+  - name: "ai-model-latency-injection"
+    description: "Inject artificial delays in AI model inference"
+    type: application
+    target: ai-model
+    parameters:
+      latency_mean: "500ms"
+      latency_std: "100ms"
+      affected_requests: 0.3  # 30% of requests
+      duration: 300
+    monitoring:
+      metrics:
+        - safepath_model_inference_time
+        - safepath_model_timeout_errors
+
+  # Service Dependency Chaos
+  - name: "external-api-failure"
+    description: "Simulate external API failures"
+    type: service
+    target: external
+    parameters:
+      services:
+        - "openai-api"
+        - "huggingface-api"
+      failure_rate: 0.1
+      duration: 180
+    monitoring:
+      metrics:
+        - safepath_external_api_errors
+        - safepath_fallback_model_usage
+
+  - name: "microservice-cascade-failure"
+    description: "Test cascade failure resistance"
+    type: service
+    target: internal
+    parameters:
+      kill_services:
+        - "metrics-collector"
+        - "health-checker"
+      kill_order: "random"
+      duration: 240
+    monitoring:
+      metrics:
+        - safepath_service_availability
+        - safepath_degraded_mode_activation
+
+# Security-focused Chaos Experiments
+security_experiments:
+  
+  - name: "security-bypass-flood"
+    description: "Test system behavior under security bypass attempts"
+    type: security
+    parameters:
+      bypass_attempt_rate: 100  # attempts per second
+      pattern_variation: high
+      duration: 180
+    monitoring:
+      metrics:
+        - safepath_security_bypass_attempts
+        - safepath_security_block_rate
+        - safepath_false_positive_rate
+
+  - name: "adversarial-input-stress"
+    description: "Test AI model resilience against adversarial inputs"
+    type: ai-security
+    parameters:
+      adversarial_ratio: 0.5  # 50% adversarial inputs
+      attack_types:
+        - "prompt_injection"
+        - "encoding_attacks"
+        - "context_manipulation"
+      duration: 300
+    monitoring:
+      metrics:
+        - safepath_adversarial_detection_rate
+        - safepath_model_confidence_scores
+
+# Recovery Testing
+recovery_tests:
+  
+  - name: "graceful-shutdown-test"
+    description: "Test graceful shutdown and restart behavior"
+    type: lifecycle
+    parameters:
+      shutdown_signal: "SIGTERM"
+      wait_time: 30
+      force_kill_after: 60
+    validation:
+      - no_request_loss: true
+      - data_consistency: true
+      - connection_draining: true
+
+  - name: "disaster-recovery-test"
+    description: "Test backup and recovery procedures"
+    type: disaster
+    parameters:
+      failure_scenario: "complete_data_loss"
+      recovery_method: "automated_backup_restore"
+    validation:
+      - data_integrity: true
+      - service_continuity: true
+      - recovery_time_objective: 300  # 5 minutes
+
+# Observability during Chaos
+observability:
+  
+  dashboards:
+    - name: "chaos-experiment-dashboard"
+      metrics:
+        - safepath_request_rate
+        - safepath_error_rate
+        - safepath_response_time_percentiles
+        - safepath_resource_utilization
+        - safepath_security_metrics
+  
+  alerts:
+    - name: "chaos-experiment-failure"
+      condition: "experiment_safety_threshold_breached"
+      action: "abort_experiment"
+    
+    - name: "chaos-experiment-anomaly"
+      condition: "unexpected_behavior_detected"
+      action: "escalate_to_team"
+
+# Reporting and Analysis
+reporting:
+  
+  formats:
+    - json
+    - html
+    - prometheus_metrics
+  
+  distribution:
+    - slack: "#chaos-engineering"
+    - email: "sre-team@terragonlabs.com"
+    - dashboard: "grafana://chaos-experiments"
+  
+  analysis:
+    - baseline_comparison: true
+    - trend_analysis: true
+    - failure_pattern_recognition: true
+    - improvement_recommendations: true
+
+# Scheduling
+schedule:
+  
+  # Regular resilience testing
+  weekly_tests:
+    - experiment: "cpu-stress-test"
+      day: "monday"
+      time: "02:00"
+    
+    - experiment: "network-latency-injection"
+      day: "wednesday"
+      time: "02:00"
+    
+    - experiment: "database-connection-chaos"
+      day: "friday"
+      time: "02:00"
+  
+  # Monthly comprehensive testing
+  monthly_tests:
+    - experiment: "disaster-recovery-test"
+      day: 1
+      time: "01:00"
+    
+    - experiment: "security-bypass-flood"
+      day: 15
+      time: "02:00"
+  
+  # Game days (manual execution)
+  game_days:
+    frequency: "quarterly"
+    duration: "4h"
+    experiments:
+      - "microservice-cascade-failure"
+      - "network-partition"
+      - "adversarial-input-stress"
+      - "graceful-shutdown-test"

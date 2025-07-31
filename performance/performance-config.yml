@@ -1,0 +1,458 @@
+# Performance Optimization Configuration for CoT SafePath Filter
+# Advanced performance tuning and optimization settings
+
+version: 1.0.0
+application: "cot-safepath-filter"
+environment: "production"
+
+# Application Performance Configuration
+application:
+  
+  # Server Configuration
+  server:
+    # Async worker configuration
+    workers: 4
+    worker_class: "uvicorn.workers.UvicornWorker"
+    worker_connections: 1000
+    max_requests: 5000
+    max_requests_jitter: 100
+    preload_app: true
+    
+    # Connection handling
+    keepalive: 2
+    keepalive_timeout: 75
+    timeout: 30
+    graceful_timeout: 60
+    
+    # Memory management
+    max_worker_memory: "1GB"
+    worker_restart_threshold: "800MB"
+    memory_monitoring_interval: 30
+  
+  # Request Processing
+  request_processing:
+    # Request limits
+    max_request_size: "10MB"
+    max_concurrent_requests: 500
+    request_timeout: 30
+    
+    # Response configuration
+    compression:
+      enabled: true
+      minimum_size: 1024
+      level: 6
+      algorithms: ["gzip", "deflate", "br"]
+    
+    # Caching headers
+    static_cache_max_age: 31536000  # 1 year
+    api_cache_max_age: 300  # 5 minutes
+  
+  # Threading and Async
+  async_config:
+    event_loop: "uvloop"  # High-performance event loop
+    thread_pool_size: 20
+    max_async_tasks: 1000
+    task_timeout: 60
+    
+    # Background task processing
+    background_workers: 2
+    task_queue_size: 10000
+    task_batch_size: 100
+
+# AI Model Performance
+ai_model:
+  
+  # Inference optimization
+  inference:
+    # Batch processing
+    batch_size: 32
+    max_batch_wait_ms: 50
+    dynamic_batching: true
+    
+    # Model quantization
+    quantization:
+      enabled: true
+      precision: "int8"  # int8, fp16, fp32
+      calibration_dataset_size: 1000
+    
+    # ONNX optimization
+    onnx_optimization:
+      enabled: true
+      optimization_level: "all"
+      providers: ["CPUExecutionProvider", "CUDAExecutionProvider"]
+    
+    # Caching
+    prediction_cache:
+      enabled: true
+      cache_size: "500MB"
+      ttl: 3600  # 1 hour
+      cache_hit_threshold: 0.95  # Cache if 95% similar
+  
+  # Model loading and memory
+  model_management:
+    # Model loading
+    lazy_loading: true
+    preload_critical_models: ["bert-safety-v2"]
+    model_cache_size: "2GB"
+    
+    # Memory optimization
+    gradient_accumulation: false
+    mixed_precision: true
+    memory_efficient_attention: true
+    
+    # Multi-model serving
+    model_parallel: true
+    model_sharding: false
+    max_models_in_memory: 3
+
+# Database Performance
+database:
+  
+  # Connection pooling (PostgreSQL)
+  postgresql:
+    pool_size: 20
+    max_overflow: 30
+    pool_timeout: 30
+    pool_recycle: 3600
+    pool_pre_ping: true
+    
+    # Query optimization
+    statement_cache_size: 500
+    prepared_statement_cache_size: 100
+    query_timeout: 30
+    
+    # Connection optimization
+    tcp_keepalives_idle: 600
+    tcp_keepalives_interval: 30
+    tcp_keepalives_count: 3
+  
+  # Query performance
+  query_optimization:
+    # Query analysis
+    slow_query_threshold: 1.0  # seconds
+    explain_analyze: true
+    query_plan_cache: true
+    
+    # Indexing strategy
+    auto_index_creation: false
+    index_usage_monitoring: true
+    
+    # Batch operations
+    bulk_insert_batch_size: 1000
+    bulk_update_batch_size: 500
+
+# Caching Configuration
+caching:
+  
+  # Redis configuration
+  redis:
+    # Connection pooling
+    connection_pool_size: 20
+    max_connections: 100
+    socket_timeout: 5
+    socket_connect_timeout: 5
+    socket_keepalive: true
+    socket_keepalive_options: {}
+    
+    # Memory optimization
+    maxmemory_policy: "allkeys-lru"
+    compression: true
+    compression_threshold: 1024
+    
+    # Clustering
+    cluster_enabled: false
+    cluster_nodes: []
+    cluster_require_full_coverage: false
+  
+  # Application-level caching
+  application_cache:
+    # Multi-level caching
+    l1_cache:
+      type: "memory"
+      size: "256MB"
+      ttl: 300
+    
+    l2_cache:
+      type: "redis"
+      size: "1GB"
+      ttl: 3600
+    
+    # Cache strategies
+    write_strategy: "write-through"
+    eviction_policy: "lru"
+    
+    # Cache warming
+    warm_cache_on_startup: true
+    cache_preload_patterns:
+      - "frequently_used_patterns"
+      - "security_rules"
+
+# Network and I/O Optimization
+network:
+  
+  # HTTP/HTTPS optimization
+  http:
+    # Keep-alive settings
+    keep_alive: true
+    keep_alive_timeout: 75
+    max_keep_alive_requests: 1000
+    
+    # TCP optimization
+    tcp_nodelay: true
+    tcp_quickack: true
+    
+    # Buffer sizes
+    send_buffer_size: "64KB"
+    receive_buffer_size: "64KB"
+  
+  # Load balancing
+  load_balancing:
+    strategy: "least_connections"
+    health_check_interval: 30
+    health_check_timeout: 5
+    max_retries: 3
+    retry_delay: 1
+  
+  # CDN and edge optimization
+  cdn:
+    enabled: true
+    edge_caching: true
+    compression: true
+    image_optimization: true
+
+# Resource Management
+resources:
+  
+  # Memory management
+  memory:
+    # Heap settings
+    initial_heap_size: "512MB"
+    max_heap_size: "2GB"
+    
+    # Garbage collection (Python)
+    gc_optimization: true
+    gc_thresholds: [700, 10, 10]  # generation thresholds
+    
+    # Memory monitoring
+    memory_profiling: true
+    memory_leak_detection: true
+    oom_killer_protection: true
+  
+  # CPU optimization
+  cpu:
+    # Process affinity
+    cpu_affinity: "auto"  # or specific cores [0, 1, 2, 3]
+    
+    # CPU scheduling
+    nice_level: 0
+    scheduling_policy: "normal"  # normal, fifo, rr
+    
+    # CPU scaling
+    cpu_governor: "performance"  # performance, powersave, ondemand
+  
+  # I/O optimization
+  io:
+    # File I/O
+    io_scheduler: "mq-deadline"  # none, mq-deadline, kyber
+    read_ahead_size: "2MB"
+    
+    # Async I/O
+    aio_max_requests: 65536
+    io_uring_enabled: true
+
+# Monitoring and Profiling
+monitoring:
+  
+  # Performance metrics
+  metrics:
+    # Collection intervals
+    high_frequency_metrics: 1  # seconds
+    medium_frequency_metrics: 5
+    low_frequency_metrics: 60
+    
+    # Metric categories
+    enabled_metrics:
+      - "request_latency"
+      - "throughput"
+      - "error_rates"
+      - "resource_utilization"
+      - "cache_performance"
+      - "database_performance"
+      - "ai_model_performance"
+  
+  # Profiling
+  profiling:
+    # CPU profiling
+    cpu_profiling: true
+    cpu_profile_interval: 0.01  # 10ms
+    
+    # Memory profiling
+    memory_profiling: true
+    memory_profile_interval: 1  # 1 second
+    
+    # Custom profiling
+    profile_slow_requests: true
+    slow_request_threshold: 1.0  # seconds
+    
+    # Flame graphs
+    flame_graph_generation: true
+    flame_graph_retention: "7d"
+
+# Performance Testing
+testing:
+  
+  # Load testing configuration
+  load_testing:
+    # Test scenarios
+    scenarios:
+      - name: "normal_load"
+        users: 100
+        ramp_up: "30s"
+        duration: "5m"
+        
+      - name: "peak_load"
+        users: 500
+        ramp_up: "1m"
+        duration: "10m"
+        
+      - name: "stress_test"
+        users: 1000
+        ramp_up: "2m"
+        duration: "15m"
+    
+    # Performance targets
+    targets:
+      response_time_p95: 500  # milliseconds
+      response_time_p99: 1000
+      error_rate: 0.01  # 1%
+      throughput: 1000  # requests per second
+  
+  # Benchmark configuration
+  benchmarking:
+    # Benchmark suites
+    suites:
+      - "api_endpoints"
+      - "ai_model_inference"
+      - "database_queries"
+      - "cache_operations"
+    
+    # Regression detection
+    regression_threshold: 0.1  # 10% performance degradation
+    baseline_comparison: true
+    
+    # Performance budgets
+    performance_budgets:
+      api_response_time: 200  # ms
+      model_inference_time: 100  # ms
+      database_query_time: 50  # ms
+
+# Environment-specific Optimizations
+environments:
+  
+  # Development environment
+  development:
+    debug_mode: true
+    hot_reload: true
+    profiling: true
+    detailed_logging: true
+    
+    # Relaxed limits for development
+    workers: 1
+    batch_size: 8
+    cache_ttl: 60
+  
+  # Production environment
+  production:
+    debug_mode: false
+    hot_reload: false
+    profiling: false  # Enable only when needed
+    detailed_logging: false
+    
+    # Optimized for production
+    workers: 8
+    batch_size: 64
+    cache_ttl: 3600
+    
+    # Production-specific optimizations
+    precompile_templates: true
+    enable_jit: true
+    optimize_imports: true
+  
+  # Testing environment
+  testing:
+    # Optimized for test speed
+    workers: 2
+    batch_size: 16
+    cache_ttl: 10
+    
+    # Test-specific settings
+    mock_external_apis: true
+    in_memory_database: true
+    fast_crypto: true  # Use less secure but faster crypto for tests
+
+# Advanced Optimizations
+advanced:
+  
+  # JIT compilation
+  jit_compilation:
+    enabled: true
+    warmup_requests: 100
+    compilation_threshold: 10
+  
+  # Memory mapping
+  memory_mapping:
+    enabled: true
+    map_size: "1GB"
+    sparse_files: true
+  
+  # NUMA optimization
+  numa:
+    enabled: false  # Enable for multi-socket systems
+    node_affinity: "auto"
+    memory_interleaving: false
+  
+  # Security vs Performance trade-offs
+  security_performance:
+    # Crypto optimization
+    hardware_crypto: true
+    crypto_engine: "openssl"  # openssl, boringssl
+    
+    # TLS optimization
+    tls_session_cache: true
+    tls_session_timeout: 300
+    
+    # ASLR and stack protection
+    disable_aslr: false  # Keep security enabled
+    stack_protection: true
+
+# Troubleshooting and Debugging
+troubleshooting:
+  
+  # Performance debugging
+  debug_tools:
+    # Slow request debugging
+    slow_request_tracing: true
+    request_profiling: true
+    
+    # Memory debugging
+    memory_leak_detection: true
+    heap_dumping: true
+    
+    # CPU debugging
+    cpu_profiling: true
+    flame_graphs: true
+  
+  # Performance alerts
+  alerts:
+    # Response time alerts
+    high_latency_threshold: 1000  # ms
+    
+    # Throughput alerts
+    low_throughput_threshold: 100  # requests/second
+    
+    # Resource alerts
+    high_cpu_threshold: 80  # percent
+    high_memory_threshold: 80  # percent
+    
+    # Error rate alerts
+    high_error_rate_threshold: 0.05  # 5%
