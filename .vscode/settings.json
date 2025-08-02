@@ -1,0 +1,174 @@
+{
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.linting.banditEnabled": true,
+  "python.linting.flake8Enabled": false,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=88"
+  ],
+  "python.sortImports.args": [
+    "--profile",
+    "black"
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": [
+    "tests/",
+    "-v",
+    "--tb=short"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.completeFunctionParens": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true,
+    "source.fixAll": true
+  },
+  "editor.rulers": [
+    88
+  ],
+  "files.associations": {
+    "*.yaml": "yaml",
+    "*.yml": "yaml",
+    "Dockerfile*": "dockerfile",
+    ".env*": "properties",
+    "*.toml": "toml"
+  },
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.coverage": true,
+    "**/htmlcov": true,
+    "**/*.egg-info": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/.DS_Store": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.pytest_cache/**": true,
+    "**/__pycache__/**": true,
+    "**/venv/**": true,
+    "**/.venv/**": true
+  },
+  "files.autoSave": "onFocusChange",
+  "terminal.integrated.profiles.linux": {
+    "bash": {
+      "path": "/bin/bash"
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "git.autofetch": true,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "yaml.schemas": {
+    "https://json.schemastore.org/github-workflow.json": ".github/workflows/*.yml",
+    "https://json.schemastore.org/docker-compose.json": "docker-compose*.yml",
+    "https://json.schemastore.org/prometheus.json": "monitoring/prometheus/*.yml"
+  },
+  "yaml.validate": true,
+  "yaml.completion": true,
+  "json.validate.enable": true,
+  "markdown.validate.enabled": true,
+  "markdown.preview.fontSize": 14,
+  "markdown.preview.lineHeight": 1.6,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": false
+  },
+  "[dockerfile]": {
+    "editor.defaultFormatter": "ms-azuretools.vscode-docker",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "eslint.enable": false,
+  "prettier.requireConfig": true,
+  "ruff.args": [
+    "--config=pyproject.toml"
+  ],
+  "mypy-type-checker.args": [
+    "--config-file=pyproject.toml"
+  ],
+  "pylint.args": [
+    "--rcfile=pyproject.toml"
+  ],
+  "black-formatter.args": [
+    "--config=pyproject.toml"
+  ],
+  "isort.args": [
+    "--settings-path=pyproject.toml"
+  ],
+  "todo-tree.general.tags": [
+    "BUG",
+    "HACK",
+    "FIXME",
+    "TODO",
+    "XXX",
+    "NOTE",
+    "OPTIMIZE"
+  ],
+  "todo-tree.highlights.defaultHighlight": {
+    "icon": "alert",
+    "type": "tag",
+    "foreground": "red",
+    "background": "white",
+    "opacity": 50,
+    "iconColour": "blue"
+  },
+  "todo-tree.highlights.customHighlight": {
+    "TODO": {
+      "icon": "check",
+      "foreground": "blue"
+    },
+    "FIXME": {
+      "icon": "alert",
+      "foreground": "red"
+    },
+    "NOTE": {
+      "icon": "note",
+      "foreground": "green"
+    }
+  },
+  "coverage-gutters.coverageFileNames": [
+    "coverage.xml",
+    "coverage.lcov",
+    ".coverage"
+  ],
+  "coverage-gutters.showLineCoverage": true,
+  "coverage-gutters.showRulerCoverage": true,
+  "docker.enabledDockerComposeFeatures": {
+    "up": true,
+    "down": true,
+    "logs": true
+  }
+}

@@ -1,65 +1,80 @@
-# Workflow Requirements Documentation
+# CI/CD Workflows Documentation
+
+This directory contains comprehensive documentation and templates for GitHub Actions workflows that need to be manually created by repository maintainers due to GitHub App permission limitations.
 
 ## Overview
 
-This document outlines the GitHub Actions workflows required for comprehensive SDLC automation.
+The CoT SafePath Filter requires several CI/CD workflows to ensure code quality, security, and reliable deployments. This documentation provides templates and configuration guides for implementing these workflows.
 
 ## Required Workflows
 
-### 1. Continuous Integration (`ci.yml`)
-- **Purpose**: Automated testing, linting, and security checks
-- **Triggers**: Push to main, PRs, scheduled runs
-- **Required Steps**:
-  - Multi-Python version testing (3.9, 3.10, 3.11, 3.12)
-  - Code quality checks (Black, Ruff, MyPy)
-  - Security scanning (Bandit, Safety, Secret detection)
-  - Test coverage reporting
-  - Docker image building and testing
+### 1. Continuous Integration (CI) - `ci.yml`
+**Purpose**: Validate all pull requests and commits
+**Triggers**: Pull requests, pushes to main branch
+**Location**: `.github/workflows/ci.yml`
 
-### 2. Release Management (`release.yml`)
-- **Purpose**: Automated releases and deployments
-- **Triggers**: Version tags, release creation
-- **Required Steps**:
-  - PyPI package publishing
-  - Docker image publishing to registry
-  - GitHub release notes generation
-  - Documentation deployment
+### 2. Continuous Deployment (CD) - `cd.yml`
+**Purpose**: Deploy to staging and production environments
+**Triggers**: Pushes to main branch, release tags
+**Location**: `.github/workflows/cd.yml`
 
-### 3. Security Scanning (`security.yml`)
-- **Purpose**: Comprehensive security analysis
-- **Triggers**: Schedule (daily), security events
-- **Required Steps**:
-  - Dependency vulnerability scanning
-  - SAST (Static Application Security Testing)
-  - Container image vulnerability scanning
-  - License compliance checking
+### 3. Security Scanning - `security-scan.yml`
+**Purpose**: Comprehensive security analysis
+**Triggers**: Schedule (daily), pull requests
+**Location**: `.github/workflows/security-scan.yml`
 
-### 4. Performance Testing (`performance.yml`)
-- **Purpose**: Performance regression detection
-- **Triggers**: PRs to main, scheduled runs
-- **Required Steps**:
-  - Load testing with realistic scenarios
-  - Performance benchmarking
-  - Memory usage analysis
-  - Latency measurement and reporting
+### 4. Dependency Updates - `dependency-update.yml`
+**Purpose**: Automated dependency management
+**Triggers**: Schedule (weekly)
+**Location**: `.github/workflows/dependency-update.yml`
+
+### 5. Release Management - `release.yml`
+**Purpose**: Automated release process
+**Triggers**: Release creation
+**Location**: `.github/workflows/release.yml`
+
+## Implementation Instructions
+
+### Step 1: Create Workflow Directory
+```bash
+mkdir -p .github/workflows
+```
+
+### Step 2: Copy Templates
+Copy the workflow templates from `docs/workflows/examples/` to `.github/workflows/`
+
+### Step 3: Configure Secrets
+Add the following secrets to your GitHub repository:
+
+#### Required Secrets
+- `DOCKER_REGISTRY_TOKEN`: Token for Docker registry access
+- `SLACK_WEBHOOK_URL`: Slack webhook for notifications
+- `PAGERDUTY_ROUTING_KEY`: PagerDuty routing key for alerts
+- `CODECOV_TOKEN`: Codecov token for coverage reporting
+- `SONAR_TOKEN`: SonarCloud token for code analysis
+
+#### Optional Secrets
+- `AWS_ACCESS_KEY_ID`: AWS access key for cloud deployments
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key for cloud deployments
+- `HEROKU_API_KEY`: Heroku API key for Heroku deployments
+- `NPM_TOKEN`: NPM token for package publishing
+
+### Step 4: Configure Branch Protection
+Set up branch protection rules for the main branch:
+- Require status checks to pass before merging
+- Require branches to be up to date before merging
+- Require review from code owners
+- Restrict pushes to matching branches
+
+### Step 5: Set up Environments
+Create the following environments in GitHub:
+- `development`: For development deployments
+- `staging`: For staging deployments
+- `production`: For production deployments (with approval required)
 
 ## Manual Setup Required
 
-⚠️ **Important**: GitHub Actions workflows require manual creation due to permission limitations.
-
-Please create the following files in `.github/workflows/`:
-- `ci.yml` - See [GitHub Actions CI/CD Guide](https://docs.github.com/en/actions/automating-builds-and-tests)
-- `release.yml` - See [Release Automation Guide](https://docs.github.com/en/actions/publishing-packages)
-- `security.yml` - See [Security Scanning Guide](https://docs.github.com/en/code-security/code-scanning)
-- `performance.yml` - Custom performance testing workflow
-
-## Repository Settings
-
-Configure the following repository settings manually:
-- **Branch Protection**: Require status checks for main branch
-- **Security**: Enable vulnerability alerts and security updates
-- **Actions**: Configure workflow permissions and secrets
-- **Pages**: Enable GitHub Pages for documentation (if needed)
+⚠️ **Important**: Due to GitHub App permission limitations, repository maintainers must manually create workflow files using the templates provided in the `examples/` directory.
 
 ## External Resources
 
