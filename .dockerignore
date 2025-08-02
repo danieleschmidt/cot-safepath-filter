@@ -1,0 +1,185 @@
+# .dockerignore - Optimize Docker build context
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python cache and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Testing and coverage
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Documentation
+docs/_build/
+site/
+.mkdocs_cache/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Security and secrets
+.secrets.baseline
+*.pem
+*.key
+*.crt
+.env.local
+.env.production
+
+# Dependency management
+poetry.lock
+Pipfile.lock
+
+# Docker files (except Dockerfile)
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development tools
+Makefile
+*.mk
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Node.js (if any frontend components)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package management
+package-lock.json
+yarn.lock
+
+# Monitoring and profiling
+*.prof
+*.stats
+profile_*
+
+# Local configuration overrides
+local_config.*
+config_local.*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Media files (usually not needed in container)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.mp4
+*.avi
+*.mov
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Research and analysis
+notebooks/
+analysis/
+experiments/
+
+# Large model files (should be downloaded at runtime)
+models/
+weights/
+checkpoints/
+
+# Performance test results
+performance_results/
+load_test_results/
+
+# Security scan results
+bandit-report.*
+safety-report.*
+semgrep-report.*
+audit-report.*
+
+# Pre-commit hooks
+.pre-commit-config.yaml
+
+# README files (keep essential ones only)
+# README.md is kept for package information
