@@ -2,7 +2,7 @@
 # Optimized for security, performance, and minimal attack surface
 
 # Build stage
-FROM python:3.11-slim-bullseye as builder
+FROM python:3.13-slim-bullseye as builder
 
 # Set build arguments
 ARG BUILD_DATE
@@ -37,7 +37,7 @@ RUN pip install --no-cache-dir build wheel && \
     pip install dist/*.whl
 
 # Production stage
-FROM python:3.11-slim-bullseye as production
+FROM python:3.13-slim-bullseye as production
 
 # Set build labels for metadata
 LABEL org.opencontainers.image.title="CoT SafePath Filter" \
@@ -104,7 +104,7 @@ ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["safepath-server"]
 
 # Development stage (for development containers)
-FROM python:3.11-slim-bullseye as development
+FROM python:3.13-slim-bullseye as development
 
 # Install development dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
