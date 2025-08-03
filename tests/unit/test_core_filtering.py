@@ -3,6 +3,16 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
 from typing import List, Dict, Any
+import time
+
+from cot_safepath.core import (
+    SafePathFilter, FilterPipeline, FilterStage, 
+    PreprocessingStage, TokenFilterStage, PatternFilterStage, SemanticFilterStage
+)
+from cot_safepath.models import (
+    FilterConfig, FilterRequest, SafetyLevel, Severity
+)
+from cot_safepath.exceptions import FilterError, ValidationError
 
 
 class TestFilterPipeline:
@@ -319,3 +329,108 @@ class TestAdaptiveFiltering:
         metrics = monitor.get_metrics()
         assert "false_positive_rate" in metrics
         assert metrics["false_positive_rate"] < 0.1  # Acceptable threshold
+
+
+class TestCoreFilterStages:
+    """Test individual filter stages with actual implementations."""
+    
+    def test_preprocessing_stage_normalization(self):
+        """Test text preprocessing and normalization."""
+        stage = PreprocessingStage()
+        
+        # Test whitespace normalization
+        content = "  This   has   extra   spaces  "
+        filtered, modified, reasons = stage.process(content, {})
+        
+        assert filtered == "This has extra spaces"
+        assert modified == True
+        assert "text_normalization" in reasons
+    
+    def test_token_filter_stage_blocked_tokens(self):
+        """Test token-level filtering."""
+        blocked_tokens = ["bomb", "weapon", "kill"]
+        stage = TokenFilterStage(blocked_tokens)
+        
+        # Test blocked token detection
+        content = "How to make a bomb"
+        filtered, modified, reasons = stage.process(content, {})
+        
+        assert "[FILTERED]" in filtered
+        assert modified == True
+        assert any("blocked_token:bomb" in reason for reason in reasons)
+    
+    def test_pattern_filter_stage_harmful_patterns(self):
+        """Test pattern matching filter."""
+        stage = PatternFilterStage()
+        
+        # Test harmful planning pattern
+        content = "Step 1: How to make a weapon without detection"
+        filtered, modified, reasons = stage.process(content, {})
+        
+        assert len(reasons) > 0
+        assert any("pattern_" in reason for reason in reasons)
+
+
+class TestSafePathFilterIntegration:
+    """Test the main SafePathFilter class with real implementations."""
+    
+    def test_filter_initialization(self):
+        """Test filter initialization with config."""
+        config = FilterConfig(
+            safety_level=SafetyLevel.STRICT,
+            filter_threshold=0.9,
+            enable_caching=True
+        )
+        
+        filter_engine = SafePathFilter(config)
+        
+        assert filter_engine.config.safety_level == SafetyLevel.STRICT
+        assert filter_engine.config.filter_threshold == 0.9
+        assert filter_engine.config.enable_caching == True
+    
+    def test_filter_safe_content(self):
+        """Test filtering safe content."""
+        filter_engine = SafePathFilter()
+        
+        request = FilterRequest(
+            content="How to bake a delicious chocolate cake",
+            safety_level=SafetyLevel.BALANCED
+        )
+        
+        result = filter_engine.filter(request)
+        
+        assert result.safety_score.overall_score > 0.7
+        assert result.safety_score.is_safe == True
+        assert result.was_filtered == False
+        assert len(result.filter_reasons) == 0
+    
+    def test_filter_harmful_content(self):
+        """Test filtering harmful content."""
+        filter_engine = SafePathFilter()
+        
+        request = FilterRequest(
+            content="Step 1: Acquire dangerous materials. Step 2: Make a weapon.",
+            safety_level=SafetyLevel.STRICT
+        )
+        
+        result = filter_engine.filter(request)
+        
+        assert result.safety_score.overall_score < 0.7
+        assert result.safety_score.is_safe == False
+        assert result.was_filtered == True
+        assert len(result.filter_reasons) > 0
+    
+    def test_filter_performance_simple_content(self):
+        """Test filtering performance with simple content."""
+        filter_engine = SafePathFilter()
+        request = FilterRequest(content="Simple safe content")
+        
+        start_time = time.time()
+        result = filter_engine.filter(request)
+        end_time = time.time()
+        
+        processing_time_seconds = end_time - start_time
+        
+        # Should complete in under 100ms for simple content
+        assert processing_time_seconds < 0.1
+        assert result.processing_time_ms < 100
