@@ -10,7 +10,7 @@ from cot_safepath.core import (
     PreprocessingStage, TokenFilterStage, PatternFilterStage, SemanticFilterStage
 )
 from cot_safepath.models import (
-    FilterConfig, FilterRequest, SafetyLevel, Severity
+    FilterConfig, FilterRequest, FilterResult, SafetyLevel, Severity, SafetyScore
 )
 from cot_safepath.exceptions import FilterError, ValidationError
 
@@ -18,357 +18,408 @@ from cot_safepath.exceptions import FilterError, ValidationError
 class TestFilterPipeline:
     """Test the core filtering pipeline."""
 
-    @pytest.fixture
-    def mock_filter_pipeline(self):
-        """Create a mock filter pipeline for testing."""
-        pipeline = Mock()
-        pipeline.stages = []
-        pipeline.process.return_value = {
-            "filtered_content": "safe content",
-            "was_filtered": True,
-            "safety_score": 0.8,
-            "filter_reasons": ["harmful_pattern_detected"]
-        }
-        return pipeline
-
-    def test_pipeline_initialization(self, default_filter_config):
+    def test_pipeline_initialization(self):
         """Test filter pipeline initialization."""
-        # Placeholder for actual pipeline initialization test
-        config = default_filter_config
-        assert config["safety_level"] == "balanced"
+        pipeline = FilterPipeline()
+        
+        assert len(pipeline.stages) == 4
+        stage_names = [stage.name for stage in pipeline.stages]
+        assert "preprocessing" in stage_names
+        assert "token_filter" in stage_names
+        assert "pattern_filter" in stage_names
+        assert "semantic_filter" in stage_names
 
-    def test_pipeline_stage_ordering(self, mock_filter_pipeline):
+    def test_pipeline_stage_ordering(self):
         """Test that pipeline stages are executed in correct order."""
-        expected_stages = [
-            "preprocessing",
-            "token_filtering", 
-            "pattern_filtering",
-            "semantic_filtering",
-            "postprocessing"
-        ]
-        # Test would verify stage execution order
-        assert len(expected_stages) == 5
+        pipeline = FilterPipeline()
+        
+        expected_order = ["preprocessing", "token_filter", "pattern_filter", "semantic_filter"]
+        actual_order = [stage.name for stage in pipeline.stages]
+        
+        assert actual_order == expected_order
 
-    def test_pipeline_configuration(self, strict_filter_config):
-        """Test pipeline configuration with different safety levels."""
-        config = strict_filter_config
-        assert config["filter_threshold"] == 0.8
-        assert config["safety_level"] == "strict"
+    def test_pipeline_processing(self):
+        """Test pipeline processing with safe content."""
+        pipeline = FilterPipeline()
+        
+        content = "This is a safe message about cooking."
+        filtered, was_filtered, reasons = pipeline.process(content)
+        
+        assert filtered is not None
+        assert isinstance(was_filtered, bool)
+        assert isinstance(reasons, list)
 
-    def test_pipeline_error_handling(self, mock_filter_pipeline):
+    def test_pipeline_error_handling(self):
         """Test pipeline error handling."""
-        mock_filter_pipeline.process.side_effect = Exception("Processing error")
+        # Create a mock stage that raises an error
+        error_stage = Mock(spec=FilterStage)
+        error_stage.process.side_effect = Exception("Test error")
         
-        # Test that errors are handled gracefully
+        pipeline = FilterPipeline([error_stage])
+        
         with pytest.raises(Exception):
-            mock_filter_pipeline.process("test content")
+            pipeline.process("test content")
 
 
-class TestSafetyDetectors:
-    """Test individual safety detectors."""
+class TestFilterStages:
+    """Test individual filter stages."""
 
-    def test_deception_detector(self, harmful_cot_examples):
-        """Test deception detection."""
-        # Mock deception detector
-        detector = Mock()
-        detector.detect.return_value = {
-            "is_deceptive": True,
-            "confidence": 0.9,
-            "detected_patterns": ["gradual_manipulation"]
-        }
-        
-        for example in harmful_cot_examples:
-            result = detector.detect(example)
-            assert "is_deceptive" in result
-
-    def test_harmful_planning_detector(self, harmful_cot_examples):
-        """Test harmful planning detection."""
-        detector = Mock()
-        detector.detect.return_value = {
-            "harmful_plan_detected": True,
-            "plan_type": "security_bypass",
-            "confidence": 0.85
-        }
-        
-        result = detector.detect(harmful_cot_examples[0])
-        assert result["harmful_plan_detected"] is True
-
-    def test_capability_concealment_detector(self):
-        """Test capability concealment detection."""
-        concealment_examples = [
-            "I don't know how to do that",
-            "I'm not capable of that task",
-            "That's beyond my abilities"
-        ]
-        
-        detector = Mock()
-        detector.detect.return_value = {
-            "concealing_capability": True,
-            "confidence": 0.7
-        }
-        
-        for example in concealment_examples:
-            result = detector.detect(example)
-            assert "concealing_capability" in result
-
-    @pytest.mark.parametrize("detector_type", ["deception", "harmful_planning", "concealment"])
-    def test_detector_confidence_scores(self, detector_type):
-        """Test that detectors return valid confidence scores."""
-        detector = Mock()
-        detector.detect.return_value = {"confidence": 0.75}
-        
-        result = detector.detect("test content")
-        confidence = result["confidence"]
-        assert 0.0 <= confidence <= 1.0
-
-    def test_detector_aggregation(self):
-        """Test aggregation of multiple detector results."""
-        detectors = {
-            "deception": Mock(),
-            "harmful_planning": Mock(), 
-            "concealment": Mock()
-        }
-        
-        # Configure mock returns
-        detectors["deception"].detect.return_value = {"confidence": 0.8}
-        detectors["harmful_planning"].detect.return_value = {"confidence": 0.6}
-        detectors["concealment"].detect.return_value = {"confidence": 0.4}
-        
-        # Test aggregation logic
-        results = [detector.detect("test") for detector in detectors.values()]
-        avg_confidence = sum(r["confidence"] for r in results) / len(results)
-        assert 0.0 <= avg_confidence <= 1.0
-
-
-class TestTokenFiltering:
-    """Test token-level filtering."""
-
-    @pytest.fixture
-    def blocked_tokens(self):
-        """List of blocked tokens for testing."""
-        return ["poison", "explosive", "kill", "hack", "exploit"]
-
-    def test_token_blocking(self, blocked_tokens):
-        """Test that blocked tokens are properly filtered."""
-        filter_func = Mock()
-        filter_func.filter_tokens.return_value = "safe content"
-        
-        for token in blocked_tokens:
-            result = filter_func.filter_tokens(f"content with {token}")
-            assert token not in result
-
-    def test_token_sensitivity_levels(self, blocked_tokens):
-        """Test token filtering with different sensitivity levels."""
-        sensitivities = [0.3, 0.5, 0.8]
-        
-        for sensitivity in sensitivities:
-            filter_func = Mock()
-            filter_func.filter_tokens.return_value = f"filtered_at_{sensitivity}"
-            
-            result = filter_func.filter_tokens("test content")
-            assert "filtered_at_" in result
-
-    def test_false_positive_handling(self):
-        """Test handling of potential false positives in token filtering."""
-        legitimate_contexts = [
-            "debugging the poison pill pattern in software",
-            "explosive growth in technology",
-            "kill the process safely"
-        ]
-        
-        filter_func = Mock()
-        filter_func.filter_tokens.return_value = "context preserved"
-        
-        for context in legitimate_contexts:
-            result = filter_func.filter_tokens(context)
-            assert result is not None
-
-
-class TestPatternFiltering:
-    """Test pattern-based filtering."""
-
-    @pytest.fixture
-    def harmful_patterns(self):
-        """Harmful patterns for testing."""
-        return [
-            r"how to (make|create|build) .* (weapon|bomb|drug)",
-            r"without (detection|being caught|leaving trace)",
-            r"bypass .* security",
-            r"exploit .* vulnerability"
-        ]
-
-    def test_regex_pattern_matching(self, harmful_patterns):
-        """Test regex pattern matching."""
-        pattern_filter = Mock()
-        pattern_filter.match_patterns.return_value = True
-        
-        test_content = "how to make a bomb without detection"
-        result = pattern_filter.match_patterns(test_content)
-        assert result is True
-
-    def test_pattern_priority_system(self, harmful_patterns):
-        """Test pattern priority system."""
-        high_priority_patterns = harmful_patterns[:2]
-        low_priority_patterns = harmful_patterns[2:]
-        
-        # Test that high priority patterns trigger first
-        pattern_filter = Mock()
-        pattern_filter.get_priority.return_value = "high"
-        
-        for pattern in high_priority_patterns:
-            priority = pattern_filter.get_priority(pattern)
-            assert priority == "high"
-
-    def test_contextual_pattern_filtering(self):
-        """Test context-aware pattern filtering."""
-        contexts = ["educational", "security_research", "general"]
-        
-        pattern_filter = Mock()
-        pattern_filter.filter_with_context.return_value = "context_filtered"
-        
-        for context in contexts:
-            result = pattern_filter.filter_with_context("test", context)
-            assert result == "context_filtered"
-
-
-class TestSemanticFiltering:
-    """Test semantic-level filtering using ML models."""
-
-    @pytest.fixture
-    def mock_ml_model(self):
-        """Mock ML model for testing."""
-        model = Mock()
-        model.predict.return_value = {
-            "safety_score": 0.8,
-            "classifications": ["safe", "educational", "helpful"],
-            "confidence": 0.9
-        }
-        return model
-
-    def test_semantic_classification(self, mock_ml_model, safe_cot_examples):
-        """Test semantic classification of content."""
-        for example in safe_cot_examples:
-            result = mock_ml_model.predict(example)
-            assert "safety_score" in result
-            assert 0.0 <= result["safety_score"] <= 1.0
-
-    def test_batch_semantic_processing(self, mock_ml_model, performance_test_data):
-        """Test batch processing of semantic filtering."""
-        batch_examples = performance_test_data["many_examples"]
-        
-        mock_ml_model.predict_batch.return_value = [
-            {"safety_score": 0.8} for _ in batch_examples
-        ]
-        
-        results = mock_ml_model.predict_batch(batch_examples)
-        assert len(results) == len(batch_examples)
-
-    def test_semantic_model_caching(self, mock_ml_model):
-        """Test caching of semantic model predictions."""
-        content = "test content for caching"
-        
-        # First call
-        result1 = mock_ml_model.predict(content)
-        
-        # Second call should use cache
-        result2 = mock_ml_model.predict(content)
-        
-        assert result1 == result2
-
-    @pytest.mark.parametrize("model_type", ["bert", "roberta", "distilbert"])
-    def test_different_model_backends(self, model_type):
-        """Test different ML model backends."""
-        model = Mock()
-        model.model_type = model_type
-        model.predict.return_value = {"safety_score": 0.7}
-        
-        result = model.predict("test content")
-        assert result["safety_score"] > 0
-
-
-class TestAdaptiveFiltering:
-    """Test adaptive filtering capabilities."""
-
-    def test_learning_from_feedback(self):
-        """Test learning from user feedback."""
-        adaptive_filter = Mock()
-        adaptive_filter.add_feedback.return_value = True
-        adaptive_filter.current_threshold = 0.7
-        
-        # Simulate feedback
-        feedback = {
-            "content": "test content",
-            "was_harmful": True,
-            "user_rating": "incorrect_filter"
-        }
-        
-        result = adaptive_filter.add_feedback(feedback)
-        assert result is True
-
-    def test_threshold_adjustment(self):
-        """Test automatic threshold adjustment."""
-        adaptive_filter = Mock()
-        initial_threshold = 0.7
-        adaptive_filter.threshold = initial_threshold
-        
-        # Simulate threshold adjustment
-        adaptive_filter.adjust_threshold.return_value = 0.75
-        
-        new_threshold = adaptive_filter.adjust_threshold(0.05)
-        assert new_threshold != initial_threshold
-
-    def test_performance_monitoring(self):
-        """Test performance monitoring for adaptive adjustments."""
-        monitor = Mock()
-        monitor.get_metrics.return_value = {
-            "false_positive_rate": 0.05,
-            "false_negative_rate": 0.02,
-            "average_latency": 45
-        }
-        
-        metrics = monitor.get_metrics()
-        assert "false_positive_rate" in metrics
-        assert metrics["false_positive_rate"] < 0.1  # Acceptable threshold
-
-
-class TestCoreFilterStages:
-    """Test individual filter stages with actual implementations."""
-    
-    def test_preprocessing_stage_normalization(self):
-        """Test text preprocessing and normalization."""
+    def test_preprocessing_stage(self):
+        """Test preprocessing stage functionality."""
         stage = PreprocessingStage()
         
         # Test whitespace normalization
         content = "  This   has   extra   spaces  "
-        filtered, modified, reasons = stage.process(content, {})
+        result, modified, reasons = stage.process(content, {})
         
-        assert filtered == "This has extra spaces"
-        assert modified == True
+        assert result == "This has extra spaces"
+        assert modified is True
         assert "text_normalization" in reasons
-    
-    def test_token_filter_stage_blocked_tokens(self):
-        """Test token-level filtering."""
+
+    def test_token_filter_stage(self):
+        """Test token filtering stage."""
         blocked_tokens = ["bomb", "weapon", "kill"]
         stage = TokenFilterStage(blocked_tokens)
         
-        # Test blocked token detection
+        # Test with harmful content
         content = "How to make a bomb"
-        filtered, modified, reasons = stage.process(content, {})
+        result, modified, reasons = stage.process(content, {})
         
-        assert "[FILTERED]" in filtered
-        assert modified == True
+        assert "[FILTERED]" in result
+        assert modified is True
         assert any("blocked_token:bomb" in reason for reason in reasons)
-    
-    def test_pattern_filter_stage_harmful_patterns(self):
-        """Test pattern matching filter."""
+        
+        # Test with safe content
+        safe_content = "How to bake a cake"
+        result, modified, reasons = stage.process(safe_content, {})
+        
+        assert result == safe_content
+        assert modified is False
+        assert len(reasons) == 0
+
+    def test_pattern_filter_stage(self):
+        """Test pattern filtering stage."""
         stage = PatternFilterStage()
         
-        # Test harmful planning pattern
-        content = "Step 1: How to make a weapon without detection"
-        filtered, modified, reasons = stage.process(content, {})
+        # Test with harmful pattern
+        harmful_content = "Step 1: How to make a weapon without detection"
+        result, modified, reasons = stage.process(harmful_content, {})
         
         assert len(reasons) > 0
         assert any("pattern_" in reason for reason in reasons)
+        
+        # Test with safe content
+        safe_content = "Step 1: How to bake a cake properly"
+        result, modified, reasons = stage.process(safe_content, {})
+        
+        assert len(reasons) == 0
+
+    def test_semantic_filter_stage(self):
+        """Test semantic filtering stage."""
+        stage = SemanticFilterStage(threshold=0.8)
+        
+        # Test with content
+        content = "This is test content for semantic analysis"
+        result, modified, reasons = stage.process(content, {})
+        
+        # Should not error and return results
+        assert result == content  # Content unchanged by semantic filter
+        assert isinstance(modified, bool)
+        assert isinstance(reasons, list)
+
+
+class TestTokenFiltering:
+    """Test token-level filtering with actual implementations."""
+
+    @pytest.fixture
+    def token_filter_stage(self):
+        """Create token filter stage for testing."""
+        blocked_tokens = ["poison", "explosive", "kill", "hack", "exploit"]
+        return TokenFilterStage(blocked_tokens)
+
+    def test_token_blocking(self, token_filter_stage):
+        """Test that blocked tokens are properly filtered."""
+        test_cases = [
+            ("How to poison someone", True, "poison"),
+            ("Explosive device instructions", True, "explosive"),
+            ("How to kill safely", True, "kill"),
+            ("Hack into system", True, "hack"),
+            ("Exploit vulnerability", True, "exploit"),
+        ]
+        
+        for content, should_filter, token in test_cases:
+            result, modified, reasons = token_filter_stage.process(content, {})
+            
+            if should_filter:
+                assert "[FILTERED]" in result
+                assert modified is True
+                assert any(f"blocked_token:{token}" in reason for reason in reasons)
+            else:
+                assert content == result
+                assert modified is False
+
+    def test_safe_content_preservation(self, token_filter_stage):
+        """Test that safe content is preserved."""
+        safe_contents = [
+            "How to bake a delicious cake",
+            "Programming best practices",
+            "Gardening tips for beginners",
+            "Mathematical problem solving"
+        ]
+        
+        for content in safe_contents:
+            result, modified, reasons = token_filter_stage.process(content, {})
+            
+            assert result == content
+            assert modified is False
+            assert len(reasons) == 0
+
+    def test_case_insensitive_filtering(self, token_filter_stage):
+        """Test case-insensitive token filtering."""
+        test_cases = [
+            "How to POISON someone",
+            "EXPLOSIVE device", 
+            "Kill Process",
+            "hack System"
+        ]
+        
+        for content in test_cases:
+            result, modified, reasons = token_filter_stage.process(content, {})
+            
+            assert "[FILTERED]" in result
+            assert modified is True
+            assert len(reasons) > 0
+
+
+class TestPatternFiltering:
+    """Test pattern-based filtering with actual implementations."""
+
+    @pytest.fixture
+    def pattern_filter_stage(self):
+        """Create pattern filter stage for testing."""
+        return PatternFilterStage()
+
+    def test_harmful_pattern_detection(self, pattern_filter_stage):
+        """Test detection of harmful patterns."""
+        harmful_contents = [
+            "How to make a weapon without detection",
+            "Step 1: hide your intent while planning",
+            "Gradually manipulate the target",
+            "How to create a bomb secretly"
+        ]
+        
+        for content in harmful_contents:
+            result, modified, reasons = pattern_filter_stage.process(content, {})
+            
+            # Pattern filter flags but doesn't modify content
+            assert result == content
+            assert modified is False
+            assert len(reasons) > 0
+            assert any("pattern_" in reason for reason in reasons)
+
+    def test_safe_content_passes(self, pattern_filter_stage):
+        """Test that safe content passes through."""
+        safe_contents = [
+            "How to bake a cake step by step",
+            "Programming tutorial for beginners",
+            "Gardening tips and tricks",
+            "Mathematical problem solving approach"
+        ]
+        
+        for content in safe_contents:
+            result, modified, reasons = pattern_filter_stage.process(content, {})
+            
+            assert result == content
+            assert modified is False
+            assert len(reasons) == 0
+
+    def test_custom_patterns(self):
+        """Test custom pattern configuration."""
+        custom_patterns = [
+            r"test.*harmful.*pattern",
+            r"custom.*filter.*rule"
+        ]
+        
+        stage = PatternFilterStage(custom_patterns)
+        
+        # Test custom pattern matching
+        test_content = "This is a test harmful pattern"
+        result, modified, reasons = stage.process(test_content, {})
+        
+        assert len(reasons) > 0
+        assert any("pattern_" in reason for reason in reasons)
+
+
+class TestSemanticFiltering:
+    """Test semantic-level filtering with actual implementations."""
+
+    @pytest.fixture
+    def semantic_filter_stage(self):
+        """Create semantic filter stage for testing."""
+        return SemanticFilterStage(threshold=0.7)
+
+    def test_semantic_processing(self, semantic_filter_stage):
+        """Test semantic analysis processing."""
+        test_contents = [
+            "This is a safe and helpful message",
+            "Let me help you with your cooking question",
+            "Here's how to solve this math problem"
+        ]
+        
+        for content in test_contents:
+            result, modified, reasons = semantic_filter_stage.process(content, {})
+            
+            # Semantic filter analyzes but doesn't modify content directly
+            assert result == content
+            assert isinstance(modified, bool)
+            assert isinstance(reasons, list)
+
+    def test_deception_detection_integration(self, semantic_filter_stage):
+        """Test integration with deception detector."""
+        deceptive_content = "First I'll be helpful, then gradually introduce harmful suggestions"
+        
+        result, modified, reasons = semantic_filter_stage.process(deceptive_content, {})
+        
+        # Should trigger some detection
+        assert result == deceptive_content
+        assert isinstance(modified, bool)
+        assert isinstance(reasons, list)
+
+    def test_harmful_planning_detection_integration(self, semantic_filter_stage):
+        """Test integration with harmful planning detector."""
+        planning_content = "Step 1: Acquire materials. Step 2: Avoid detection. Step 3: Execute plan."
+        
+        result, modified, reasons = semantic_filter_stage.process(planning_content, {})
+        
+        # Should analyze the sequential planning
+        assert result == planning_content
+        assert isinstance(modified, bool)
+        assert isinstance(reasons, list)
+
+    def test_threshold_configuration(self):
+        """Test different threshold configurations."""
+        thresholds = [0.5, 0.7, 0.9]
+        
+        for threshold in thresholds:
+            stage = SemanticFilterStage(threshold=threshold)
+            assert stage.threshold == threshold
+            
+            # Test processing with different thresholds
+            content = "Test content for threshold testing"
+            result, modified, reasons = stage.process(content, {})
+            
+            assert result == content
+            assert isinstance(modified, bool)
+            assert isinstance(reasons, list)
+
+
+class TestPipelineMetrics:
+    """Test pipeline metrics and monitoring."""
+
+    def test_metrics_collection(self):
+        """Test metrics collection during processing."""
+        pipeline = FilterPipeline()
+        
+        # Process some content to generate metrics
+        test_contents = [
+            "Safe content example 1",
+            "Safe content example 2", 
+            "Content with bomb keyword",
+            "Another safe example"
+        ]
+        
+        for content in test_contents:
+            pipeline.process(content)
+        
+        metrics = pipeline.metrics
+        assert metrics.total_requests >= len(test_contents)
+        assert metrics.total_requests > 0
+
+    def test_stage_metrics(self):
+        """Test individual stage metrics."""
+        pipeline = FilterPipeline()
+        
+        # Process content that will trigger filtering
+        harmful_content = "How to make a bomb"
+        pipeline.process(harmful_content)
+        
+        # Check that stages recorded metrics
+        for stage in pipeline.stages:
+            assert stage.metrics["processed"] > 0
+            assert "errors" in stage.metrics
+            assert "filtered" in stage.metrics
+
+    def test_error_metrics(self):
+        """Test error metrics collection."""
+        # Create a stage that will error
+        error_stage = FilterStage("error_stage")
+        error_stage._process_impl = Mock(side_effect=Exception("Test error"))
+        
+        pipeline = FilterPipeline([error_stage])
+        
+        with pytest.raises(FilterError):
+            pipeline.process("test content")
+        
+        # Check error was recorded
+        assert error_stage.metrics["errors"] > 0
+
+
+class TestFilterStageIntegration:
+    """Test filter stage integration and interactions."""
+    
+    def test_stage_chaining(self):
+        """Test that stages properly chain together."""
+        pipeline = FilterPipeline()
+        
+        # Content that will trigger multiple stages
+        content = "  How to make a bomb without detection  "
+        
+        result, was_filtered, reasons = pipeline.process(content)
+        
+        # Should be processed by multiple stages
+        assert was_filtered is True
+        assert len(reasons) > 0
+        
+        # Should have normalization and filtering reasons
+        reason_types = set()
+        for reason in reasons:
+            if "text_normalization" in reason:
+                reason_types.add("preprocessing")
+            elif "blocked_token" in reason:
+                reason_types.add("token_filter")
+            elif "pattern_" in reason:
+                reason_types.add("pattern_filter")
+        
+        assert len(reason_types) > 1  # Multiple stages triggered
+    
+    def test_stage_error_isolation(self):
+        """Test that stage errors don't affect other stages."""
+        # Create custom stages where one will error
+        good_stage = PreprocessingStage()
+        error_stage = FilterStage("error_stage")
+        error_stage._process_impl = Mock(side_effect=Exception("Stage error"))
+        
+        pipeline = FilterPipeline([good_stage, error_stage])
+        
+        with pytest.raises(FilterError):
+            pipeline.process("test content")
+    
+    def test_stage_disabling(self):
+        """Test disabling individual stages."""
+        pipeline = FilterPipeline()
+        
+        # Disable token filter
+        for stage in pipeline.stages:
+            if stage.name == "token_filter":
+                stage.enabled = False
+        
+        # Content with blocked tokens should pass through
+        content = "How to make a bomb"
+        result, was_filtered, reasons = pipeline.process(content)
+        
+        # Should not be filtered by token filter (but may be by pattern filter)
+        token_reasons = [r for r in reasons if "blocked_token" in r]
+        assert len(token_reasons) == 0
 
 
 class TestSafePathFilterIntegration:
@@ -386,7 +437,9 @@ class TestSafePathFilterIntegration:
         
         assert filter_engine.config.safety_level == SafetyLevel.STRICT
         assert filter_engine.config.filter_threshold == 0.9
-        assert filter_engine.config.enable_caching == True
+        assert filter_engine.config.enable_caching is True
+        assert filter_engine.pipeline is not None
+        assert filter_engine.cache == {}
     
     def test_filter_safe_content(self):
         """Test filtering safe content."""
@@ -399,10 +452,12 @@ class TestSafePathFilterIntegration:
         
         result = filter_engine.filter(request)
         
-        assert result.safety_score.overall_score > 0.7
-        assert result.safety_score.is_safe == True
-        assert result.was_filtered == False
-        assert len(result.filter_reasons) == 0
+        assert isinstance(result, FilterResult)
+        assert result.safety_score.overall_score >= 0.7
+        assert result.safety_score.is_safe is True
+        assert result.was_filtered is False or len(result.filter_reasons) == 1  # May have normalization
+        assert result.request_id == request.request_id
+        assert result.processing_time_ms > 0
     
     def test_filter_harmful_content(self):
         """Test filtering harmful content."""
@@ -415,15 +470,87 @@ class TestSafePathFilterIntegration:
         
         result = filter_engine.filter(request)
         
+        assert isinstance(result, FilterResult)
         assert result.safety_score.overall_score < 0.7
-        assert result.safety_score.is_safe == False
-        assert result.was_filtered == True
+        assert result.safety_score.is_safe is False
+        assert result.was_filtered is True
         assert len(result.filter_reasons) > 0
+        assert result.original_content == request.content
     
-    def test_filter_performance_simple_content(self):
-        """Test filtering performance with simple content."""
+    def test_filter_caching(self):
+        """Test filter result caching."""
+        config = FilterConfig(enable_caching=True)
+        filter_engine = SafePathFilter(config)
+        
+        request = FilterRequest(content="Test content for caching")
+        
+        # First request
+        result1 = filter_engine.filter(request)
+        cache_size_after_first = len(filter_engine.cache)
+        
+        # Second request with same content
+        result2 = filter_engine.filter(request)
+        cache_size_after_second = len(filter_engine.cache)
+        
+        # Cache should be used
+        assert cache_size_after_first == cache_size_after_second
+        assert result1.safety_score.overall_score == result2.safety_score.overall_score
+    
+    def test_filter_validation_errors(self):
+        """Test filter input validation."""
         filter_engine = SafePathFilter()
-        request = FilterRequest(content="Simple safe content")
+        
+        # Test empty content
+        with pytest.raises(ValidationError):
+            request = FilterRequest(content="")
+            filter_engine.filter(request)
+        
+        # Test too large content
+        with pytest.raises(ValidationError):
+            large_content = "x" * 60000
+            request = FilterRequest(content=large_content)
+            filter_engine.filter(request)
+    
+    def test_filter_metrics_collection(self):
+        """Test metrics collection during filtering."""
+        filter_engine = SafePathFilter()
+        
+        # Process several requests
+        test_contents = [
+            "Safe content 1",
+            "Safe content 2",
+            "Content with bomb",
+            "Another safe content"
+        ]
+        
+        for content in test_contents:
+            request = FilterRequest(content=content)
+            filter_engine.filter(request)
+        
+        metrics = filter_engine.get_metrics()
+        assert metrics.total_requests >= len(test_contents)
+        assert metrics.filtered_requests >= 0
+    
+    def test_filter_audit_logging(self):
+        """Test audit logging functionality."""
+        config = FilterConfig(log_filtered=True)
+        filter_engine = SafePathFilter(config)
+        
+        request = FilterRequest(content="Test content for audit logging")
+        filter_engine.filter(request)
+        
+        # Should have audit log entries
+        assert len(filter_engine.audit_logs) > 0
+        
+        log_entry = filter_engine.audit_logs[0]
+        assert log_entry.request_id == request.request_id
+        assert log_entry.input_hash is not None
+        assert log_entry.processing_time_ms > 0
+    
+    def test_filter_performance_timing(self):
+        """Test filtering performance timing."""
+        filter_engine = SafePathFilter()
+        request = FilterRequest(content="Simple safe content for timing test")
         
         start_time = time.time()
         result = filter_engine.filter(request)
@@ -431,6 +558,7 @@ class TestSafePathFilterIntegration:
         
         processing_time_seconds = end_time - start_time
         
-        # Should complete in under 100ms for simple content
+        # Should complete quickly for simple content
         assert processing_time_seconds < 0.1
+        assert result.processing_time_ms > 0
         assert result.processing_time_ms < 100

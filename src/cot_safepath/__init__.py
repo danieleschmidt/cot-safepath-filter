@@ -10,14 +10,14 @@ __version__ = "0.1.0"
 __author__ = "Daniel Schmidt"
 __email__ = "safety@terragonlabs.com"
 
-from .core import SafePathFilter, FilterPipeline, FilterResult
+from .core import SafePathFilter, FilterPipeline
 from .detectors import (
     DeceptionDetector,
     HarmfulPlanningDetector,
     CapabilityConcealmentDetector,
     ManipulationDetector,
 )
-from .models import SafetyLevel, FilterConfig, SafetyScore
+from .models import SafetyLevel, FilterConfig, SafetyScore, FilterResult
 from .exceptions import SafePathError, FilterError, DetectorError
 
 __all__ = [
