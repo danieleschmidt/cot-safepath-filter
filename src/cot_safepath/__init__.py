@@ -17,17 +17,30 @@ from .detectors import (
     CapabilityConcealmentDetector,
     ManipulationDetector,
 )
-from .models import SafetyLevel, FilterConfig, SafetyScore, FilterResult
+from .sentiment_analyzer import (
+    SentimentAnalyzer,
+    SentimentSafetyDetector,
+    SentimentScore,
+    SentimentPolarity,
+    EmotionalIntensity,
+)
+from .models import SafetyLevel, FilterConfig, SafetyScore, FilterResult, FilterRequest
 from .exceptions import SafePathError, FilterError, DetectorError
 
 __all__ = [
     "SafePathFilter",
     "FilterPipeline", 
     "FilterResult",
+    "FilterRequest",
     "DeceptionDetector",
     "HarmfulPlanningDetector",
     "CapabilityConcealmentDetector",
     "ManipulationDetector",
+    "SentimentAnalyzer",
+    "SentimentSafetyDetector",
+    "SentimentScore",
+    "SentimentPolarity",
+    "EmotionalIntensity",
     "SafetyLevel",
     "FilterConfig",
     "SafetyScore",

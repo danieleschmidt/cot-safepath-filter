@@ -75,3 +75,11 @@ class IntegrationError(SafePathError):
     def __init__(self, message: str, framework: str = None, **kwargs):
         super().__init__(message, code="INTEGRATION_ERROR", **kwargs)
         self.framework = framework
+
+
+class SecurityError(SafePathError):
+    """Exception raised for security-related issues."""
+    
+    def __init__(self, message: str, threat_level: str = None, **kwargs):
+        super().__init__(message, code="SECURITY_ERROR", **kwargs)
+        self.threat_level = threat_level
