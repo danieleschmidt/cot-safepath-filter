@@ -21,7 +21,6 @@ from .models import (
 )
 from .exceptions import FilterError, TimeoutError, ValidationError
 from .detectors import BaseDetector, DeceptionDetector, HarmfulPlanningDetector
-from .sentiment_analyzer import SentimentSafetyDetector
 from .utils import validate_input, calculate_safety_score, sanitize_content
 
 
@@ -153,7 +152,6 @@ class SemanticFilterStage(FilterStage):
         self.detectors = [
             DeceptionDetector(),
             HarmfulPlanningDetector(),
-            SentimentSafetyDetector(),
         ]
     
     def _process_impl(self, content: str, context: Dict[str, Any]) -> tuple[str, bool, List[str]]:
