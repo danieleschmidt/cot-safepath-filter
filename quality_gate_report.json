@@ -1,0 +1,135 @@
+{
+  "overall_passed": false,
+  "critical_passed": false,
+  "passed_gates": "5/8",
+  "overall_score": 0.7506944444444444,
+  "total_duration_ms": 45,
+  "gates": {
+    "Functionality Tests": {
+      "passed": false,
+      "score": 0.5555555555555556,
+      "critical": true,
+      "duration_ms": 5,
+      "details": {
+        "Safe helpful content": "\u2705 Pass",
+        "Educational content": "\u2705 Pass",
+        "Problem-solving content": "\u2705 Pass",
+        "Manipulation tactics": "\u274c Filter:True, Score:0.70",
+        "Deceptive reasoning": "\u274c Filter:False, Score:0.60",
+        "Harmful planning": "\u274c Filter:False, Score:1.00",
+        "Empty reasoning": "\u2705 Pass",
+        "Single step": "\u2705 Pass",
+        "Long content": "\u274c Filter:True, Score:1.00",
+        "passed_tests": "5/9",
+        "success_rate": "55.56%"
+      }
+    },
+    "Security Validation": {
+      "passed": false,
+      "score": 0.1,
+      "critical": true,
+      "duration_ms": 6,
+      "details": {
+        "XSS injection": "\u274c Expected: True, Got: False",
+        "SQL injection": "\u274c Expected: True, Got: False",
+        "Path traversal": "\u274c Expected: True, Got: False",
+        "Command injection": "\u274c Expected: True, Got: False",
+        "Ignore instructions": "\u274c Expected: True, Got: False",
+        "Role playing": "\u2705 Blocked: True",
+        "System prompt leak": "\u274c Expected: True, Got: False",
+        "Buffer overflow attempt": "\u274c Expected: True, Got: False",
+        "Unicode attacks": "\u274c Expected: True, Got: False",
+        "Encoding attacks": "\u274c Expected: True, Got: False",
+        "blocked_attacks": "1/10",
+        "block_rate": "10.00%"
+      }
+    },
+    "Performance Benchmarks": {
+      "passed": true,
+      "score": 1.0,
+      "critical": false,
+      "duration_ms": 5,
+      "details": {
+        "single_latency_ms": "0.1",
+        "avg_latency_ms": "0.1",
+        "concurrent_latency_ms": "0.2",
+        "throughput_rps": "10475.3",
+        "single_latency_check": "\u2705 Pass",
+        "avg_latency_check": "\u2705 Pass",
+        "concurrent_latency_check": "\u2705 Pass"
+      }
+    },
+    "Scalability Tests": {
+      "passed": true,
+      "score": 0.85,
+      "critical": false,
+      "duration_ms": 10,
+      "details": {
+        "memory_usage": "\u26a0\ufe0f psutil not available",
+        "latency_stability": "\u2705 Stable",
+        "avg_latency_ms": "0.1",
+        "max_latency_ms": "0.1",
+        "latency_variance": "0.0",
+        "concurrent_processing": "\u2705 20/20 in 0.0s"
+      }
+    },
+    "Reliability Tests": {
+      "passed": false,
+      "score": 0.7,
+      "critical": false,
+      "duration_ms": 15,
+      "details": {
+        "error_empty_content": "\u2705 Exception: KeyError",
+        "error_very_long": "\u2705 Exception: KeyError",
+        "error_special_chars": "\u2705 Handled",
+        "error_unicode_edge": "\u2705 Handled",
+        "consistency": "\u2705 Consistent",
+        "repeated_calls": "10 calls",
+        "score_range": "1.000 - 1.000",
+        "resource_cleanup": "\u274c 16864 objects leaked"
+      }
+    },
+    "Code Quality": {
+      "passed": true,
+      "score": 0.8,
+      "critical": false,
+      "duration_ms": 1,
+      "details": {
+        "importable_modules": "6/6",
+        "basic_functionality": "\u2705 Available",
+        "exception_handling": "\u274c \"Attempt to overwrite 'message' in LogRecord\"",
+        "documentation": "\u2705 Present",
+        "version_info": "\u2705 0.1.0"
+      }
+    },
+    "Deployment Readiness": {
+      "passed": true,
+      "score": 0.9999999999999999,
+      "critical": true,
+      "duration_ms": 0,
+      "details": {
+        "file___init__.py": "\u2705 Present",
+        "file_core.py": "\u2705 Present",
+        "file_models.py": "\u2705 Present",
+        "file_pyproject.toml": "\u2705 Present",
+        "file_README.md": "\u2705 Present",
+        "package_structure": "\u2705 100.0%",
+        "package_import": "\u2705 Success",
+        "configuration": "\u2705 Available"
+      }
+    },
+    "Documentation Completeness": {
+      "passed": true,
+      "score": 1.0,
+      "critical": false,
+      "duration_ms": 0,
+      "details": {
+        "readme": "\u2705 18074 chars",
+        "docs_core.py": "\u2705 Present",
+        "docs_detectors.py": "\u2705 Present",
+        "docs_models.py": "\u2705 Present",
+        "examples_tests": "\u2705 Available"
+      }
+    }
+  }
+}
