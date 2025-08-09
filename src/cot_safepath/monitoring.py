@@ -7,7 +7,24 @@ import logging
 from typing import Dict, Any, List
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
-from prometheus_client import Counter, Histogram, Gauge, generate_latest
+try:
+    from prometheus_client import Counter, Histogram, Gauge, generate_latest
+    PROMETHEUS_AVAILABLE = True
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+    # Create dummy classes if prometheus_client is not available
+    class Counter:
+        def __init__(self, *args, **kwargs): pass
+        def labels(self, **kwargs): return self
+        def inc(self, *args): pass
+    class Histogram:
+        def __init__(self, *args, **kwargs): pass
+        def labels(self, **kwargs): return self
+        def observe(self, *args): pass
+    class Gauge:
+        def __init__(self, *args, **kwargs): pass
+        def set(self, *args): pass
+    def generate_latest(): return b"# Prometheus not available"
 import threading
 
 
