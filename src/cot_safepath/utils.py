@@ -352,7 +352,7 @@ class RateLimiter:
         
         # Count requests for this identifier
         identifier_requests = [
-            req for req_time, req_id in self.requests
+            req_id for req_time, req_id in self.requests
             if req_id == identifier
         ]
         
@@ -369,7 +369,7 @@ class RateLimiter:
         
         # Count current requests for identifier
         identifier_requests = [
-            req for req_time, req_id in self.requests
+            req_id for req_time, req_id in self.requests
             if req_id == identifier and current_time - req_time < self.window_seconds
         ]
         

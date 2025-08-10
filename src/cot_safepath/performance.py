@@ -436,6 +436,25 @@ class PerformanceOptimizer:
             return accuracy / speed  # Higher is better
         
         return sorted(detectors, key=score_detector, reverse=True)
+    
+    def preprocess_content(self, content: str) -> str:
+        """Preprocess content for optimal filtering performance."""
+        # Basic content preprocessing
+        processed = content.strip()
+        processed = ' '.join(processed.split())  # Normalize whitespace
+        return processed
+    
+    def batch_process(self, contents: List[str]) -> List[Dict[str, Any]]:
+        """Process multiple contents in batch for better efficiency."""
+        results = []
+        for content in contents:
+            processed = self.preprocess_content(content)
+            features = self.precompute_features(processed)
+            results.append({
+                'content': processed,
+                'features': features
+            })
+        return results
 
 
 def performance_profile(func):

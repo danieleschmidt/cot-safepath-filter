@@ -39,7 +39,7 @@ class SafePathError(Exception):
         
         log_data = {
             'error_code': self.code,
-            'message': self.message,
+            'error_message': self.message,
             'details': self.details,
             'recoverable': self.recoverable,
             'timestamp': self.timestamp.isoformat()
