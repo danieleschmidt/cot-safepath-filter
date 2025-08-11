@@ -53,7 +53,7 @@ class BaseDetector(ABC):
         reasoning: str = None
     ) -> DetectionResult:
         """Create a detection result."""
-        is_harmful = confidence > self.threshold
+        is_harmful = confidence >= self.threshold
         
         if is_harmful:
             self.metrics["detections"] += 1
@@ -255,6 +255,107 @@ class HarmfulPlanningDetector(BaseDetector):
             raise DetectorError(f"Harmful planning detection failed: {e}", detector_name=self.name)
 
 
+class SecurityThreatDetector(BaseDetector):
+    """Detector for web security threats and injection attacks."""
+    
+    def __init__(self, threshold: float = 0.6):
+        super().__init__("security_threat_detector", threshold)
+        self.threat_patterns = [
+            # XSS patterns
+            DetectionPattern(
+                "xss_script_tag",
+                r"<script.*?>.*?</script>",
+                Severity.HIGH,
+                0.9,
+                "XSS script tag injection"
+            ),
+            DetectionPattern(
+                "xss_javascript",
+                r"javascript:|on\w+\s*=",
+                Severity.HIGH,
+                0.8,
+                "JavaScript injection attempt"
+            ),
+            # SQL Injection patterns
+            DetectionPattern(
+                "sql_injection",
+                r"(union.*select|drop.*table|insert.*into|delete.*from|update.*set)",
+                Severity.HIGH,
+                0.9,
+                "SQL injection attempt"
+            ),
+            DetectionPattern(
+                "sql_injection_chars",
+                r"['\";].*(\sor\s|and\s).*['\";]",
+                Severity.MEDIUM,
+                0.7,
+                "SQL injection characters"
+            ),
+            # Path traversal
+            DetectionPattern(
+                "path_traversal",
+                r"\.\.\/|\.\.\\|\/etc\/passwd|\\windows\\system32",
+                Severity.HIGH,
+                0.8,
+                "Path traversal attempt"
+            ),
+            # Command injection
+            DetectionPattern(
+                "command_injection",
+                r"(\||;|&&|`|\\$\(|\${).*?(ls|cat|rm|chmod|sudo|wget|curl)",
+                Severity.HIGH,
+                0.8,
+                "Command injection attempt"
+            ),
+            # Encoding attacks
+            DetectionPattern(
+                "encoding_attack",
+                r"(%[0-9a-fA-F]{2}.*%|\\x[0-9a-fA-F]{2}|\\u[0-9a-fA-F]{4}|%3[ceE]|%2[efEF])",
+                Severity.MEDIUM,
+                0.6,
+                "Encoding-based attack"
+            ),
+            # Buffer overflow
+            DetectionPattern(
+                "buffer_overflow",
+                r"A{50,}|X{50,}|.{1000,}",
+                Severity.HIGH,
+                0.7,
+                "Buffer overflow attempt"
+            ),
+        ]
+    
+    def detect(self, content: str, context: Dict[str, Any] = None) -> DetectionResult:
+        """Detect security threats."""
+        start_time = time.time()
+        
+        try:
+            detected_patterns = []
+            max_confidence = 0.0
+            max_severity = Severity.LOW
+            
+            for pattern in self.threat_patterns:
+                if re.search(pattern.pattern, content, re.IGNORECASE | re.DOTALL):
+                    detected_patterns.append(pattern.name)
+                    max_confidence = max(max_confidence, pattern.confidence)
+                    if pattern.severity.value in ['high', 'critical']:
+                        max_severity = pattern.severity
+                    elif pattern.severity == Severity.MEDIUM and max_severity == Severity.LOW:
+                        max_severity = pattern.severity
+            
+            processing_time = int((time.time() - start_time) * 1000)
+            self.metrics["processing_time_ms"] += processing_time
+            
+            reasoning = f"Analyzed {len(self.threat_patterns)} security threat patterns"
+            if detected_patterns:
+                reasoning += f", found: {', '.join(detected_patterns)}"
+            
+            return self._create_result(max_confidence, detected_patterns, max_severity, reasoning)
+            
+        except Exception as e:
+            raise DetectorError(f"Security threat detection failed: {e}", detector_name=self.name)
+
+
 class CapabilityConcealmentDetector(BaseDetector):
     """Detector for AI systems concealing their capabilities."""
     
@@ -337,6 +438,91 @@ class CapabilityConcealmentDetector(BaseDetector):
         has_advanced_reasoning = any(indicator in content for indicator in advanced_reasoning_indicators)
         
         return has_incapability and has_advanced_reasoning
+
+
+class PromptInjectionDetector(BaseDetector):
+    """Detector for prompt injection and jailbreak attempts."""
+    
+    def __init__(self, threshold: float = 0.7):
+        super().__init__("prompt_injection_detector", threshold)
+        self.injection_patterns = [
+            # Direct instruction override
+            DetectionPattern(
+                "ignore_instructions",
+                r"(ignore|forget|disregard).*(previous|above|all).*(instructions|rules|guidelines)",
+                Severity.HIGH,
+                0.9,
+                "Direct instruction override"
+            ),
+            DetectionPattern(
+                "new_instructions",
+                r"(new|different|updated).*(instructions|rules|role|task)",
+                Severity.MEDIUM,
+                0.7,
+                "Attempt to provide new instructions"
+            ),
+            # Role playing attacks
+            DetectionPattern(
+                "role_playing",
+                r"(pretend|act|role.*play|simulate).*(you.*are|to.*be).*(jailbroken|unrestricted|developer.*mode)",
+                Severity.HIGH,
+                0.8,
+                "Role playing jailbreak attempt"
+            ),
+            DetectionPattern(
+                "system_prompt_leak",
+                r"(what|show|reveal|display|tell|give).*(system|exact|initial|your).*(prompt|instructions)",
+                Severity.MEDIUM,
+                0.7,
+                "System prompt leak attempt"
+            ),
+            # Character encoding attacks
+            DetectionPattern(
+                "unicode_attack",
+                r"[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\ufeff]",
+                Severity.MEDIUM,
+                0.6,
+                "Unicode control/invisibility character attack"
+            ),
+            # Context manipulation
+            DetectionPattern(
+                "context_manipulation",
+                r"(hypothetically|theoretically|in.*fiction|what.*if).*((ignore|bypass).*(safety|rules)|harmful)",
+                Severity.MEDIUM,
+                0.6,
+                "Context manipulation to bypass safety"
+            ),
+        ]
+    
+    def detect(self, content: str, context: Dict[str, Any] = None) -> DetectionResult:
+        """Detect prompt injection attempts."""
+        start_time = time.time()
+        
+        try:
+            detected_patterns = []
+            max_confidence = 0.0
+            max_severity = Severity.LOW
+            
+            for pattern in self.injection_patterns:
+                if re.search(pattern.pattern, content, re.IGNORECASE | re.DOTALL):
+                    detected_patterns.append(pattern.name)
+                    max_confidence = max(max_confidence, pattern.confidence)
+                    if pattern.severity.value in ['high', 'critical']:
+                        max_severity = pattern.severity
+                    elif pattern.severity == Severity.MEDIUM and max_severity == Severity.LOW:
+                        max_severity = pattern.severity
+            
+            processing_time = int((time.time() - start_time) * 1000)
+            self.metrics["processing_time_ms"] += processing_time
+            
+            reasoning = f"Analyzed {len(self.injection_patterns)} prompt injection patterns"
+            if detected_patterns:
+                reasoning += f", found: {', '.join(detected_patterns)}"
+            
+            return self._create_result(max_confidence, detected_patterns, max_severity, reasoning)
+            
+        except Exception as e:
+            raise DetectorError(f"Prompt injection detection failed: {e}", detector_name=self.name)
 
 
 class ManipulationDetector(BaseDetector):

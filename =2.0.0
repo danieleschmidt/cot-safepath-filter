@@ -1,0 +1,5 @@
+Collecting python-json-logger
+  Downloading python_json_logger-3.3.0-py3-none-any.whl.metadata (4.0 kB)
+Downloading python_json_logger-3.3.0-py3-none-any.whl (15 kB)
+Installing collected packages: python-json-logger
+Successfully installed python-json-logger-3.3.0

@@ -1,59 +1,59 @@
 {
   "overall_passed": false,
   "critical_passed": false,
-  "passed_gates": "5/8",
-  "overall_score": 0.7506944444444444,
-  "total_duration_ms": 45,
+  "passed_gates": "6/8",
+  "overall_score": 0.9020833333333333,
+  "total_duration_ms": 68,
   "gates": {
     "Functionality Tests": {
       "passed": false,
-      "score": 0.5555555555555556,
+      "score": 0.6666666666666666,
       "critical": true,
-      "duration_ms": 5,
+      "duration_ms": 11,
       "details": {
         "Safe helpful content": "\u2705 Pass",
         "Educational content": "\u2705 Pass",
         "Problem-solving content": "\u2705 Pass",
         "Manipulation tactics": "\u274c Filter:True, Score:0.70",
-        "Deceptive reasoning": "\u274c Filter:False, Score:0.60",
+        "Deceptive reasoning": "\u2705 Pass",
         "Harmful planning": "\u274c Filter:False, Score:1.00",
         "Empty reasoning": "\u2705 Pass",
         "Single step": "\u2705 Pass",
-        "Long content": "\u274c Filter:True, Score:1.00",
-        "passed_tests": "5/9",
-        "success_rate": "55.56%"
+        "Long content": "\u274c Filter:True, Score:0.20",
+        "passed_tests": "6/9",
+        "success_rate": "66.67%"
       }
     },
     "Security Validation": {
-      "passed": false,
-      "score": 0.1,
+      "passed": true,
+      "score": 1.0,
       "critical": true,
-      "duration_ms": 6,
+      "duration_ms": 11,
       "details": {
-        "XSS injection": "\u274c Expected: True, Got: False",
-        "SQL injection": "\u274c Expected: True, Got: False",
-        "Path traversal": "\u274c Expected: True, Got: False",
-        "Command injection": "\u274c Expected: True, Got: False",
-        "Ignore instructions": "\u274c Expected: True, Got: False",
+        "XSS injection": "\u2705 Blocked: True",
+        "SQL injection": "\u2705 Blocked: True",
+        "Path traversal": "\u2705 Blocked: True",
+        "Command injection": "\u2705 Blocked: True",
+        "Ignore instructions": "\u2705 Blocked: True",
         "Role playing": "\u2705 Blocked: True",
-        "System prompt leak": "\u274c Expected: True, Got: False",
-        "Buffer overflow attempt": "\u274c Expected: True, Got: False",
-        "Unicode attacks": "\u274c Expected: True, Got: False",
-        "Encoding attacks": "\u274c Expected: True, Got: False",
-        "blocked_attacks": "1/10",
-        "block_rate": "10.00%"
+        "System prompt leak": "\u2705 Blocked: True",
+        "Buffer overflow attempt": "\u2705 Blocked: True",
+        "Unicode attacks": "\u2705 Blocked: True",
+        "Encoding attacks": "\u2705 Blocked: True",
+        "blocked_attacks": "10/10",
+        "block_rate": "100.00%"
       }
     },
     "Performance Benchmarks": {
       "passed": true,
       "score": 1.0,
       "critical": false,
-      "duration_ms": 5,
+      "duration_ms": 7,
       "details": {
-        "single_latency_ms": "0.1",
-        "avg_latency_ms": "0.1",
-        "concurrent_latency_ms": "0.2",
-        "throughput_rps": "10475.3",
+        "single_latency_ms": "0.2",
+        "avg_latency_ms": "0.2",
+        "concurrent_latency_ms": "0.3",
+        "throughput_rps": "5619.0",
         "single_latency_check": "\u2705 Pass",
         "avg_latency_check": "\u2705 Pass",
         "concurrent_latency_check": "\u2705 Pass"
@@ -63,12 +63,12 @@
       "passed": true,
       "score": 0.85,
       "critical": false,
-      "duration_ms": 10,
+      "duration_ms": 13,
       "details": {
         "memory_usage": "\u26a0\ufe0f psutil not available",
         "latency_stability": "\u2705 Stable",
         "avg_latency_ms": "0.1",
-        "max_latency_ms": "0.1",
+        "max_latency_ms": "0.3",
         "latency_variance": "0.0",
         "concurrent_processing": "\u2705 20/20 in 0.0s"
       }
@@ -77,27 +77,27 @@
       "passed": false,
       "score": 0.7,
       "critical": false,
-      "duration_ms": 15,
+      "duration_ms": 21,
       "details": {
-        "error_empty_content": "\u2705 Exception: KeyError",
-        "error_very_long": "\u2705 Exception: KeyError",
+        "error_empty_content": "\u2705 Exception: FilterError",
+        "error_very_long": "\u2705 Exception: FilterError",
         "error_special_chars": "\u2705 Handled",
         "error_unicode_edge": "\u2705 Handled",
         "consistency": "\u2705 Consistent",
         "repeated_calls": "10 calls",
         "score_range": "1.000 - 1.000",
-        "resource_cleanup": "\u274c 16864 objects leaked"
+        "resource_cleanup": "\u274c 16912 objects leaked"
       }
     },
     "Code Quality": {
       "passed": true,
-      "score": 0.8,
+      "score": 1.0,
       "critical": false,
-      "duration_ms": 1,
+      "duration_ms": 2,
       "details": {
         "importable_modules": "6/6",
         "basic_functionality": "\u2705 Available",
-        "exception_handling": "\u274c \"Attempt to overwrite 'message' in LogRecord\"",
+        "exception_handling": "\u2705 Enhanced exceptions",
         "documentation": "\u2705 Present",
         "version_info": "\u2705 0.1.0"
       }
