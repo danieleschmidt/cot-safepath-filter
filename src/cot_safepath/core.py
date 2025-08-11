@@ -20,7 +20,7 @@ from .models import (
     AuditLogEntry,
 )
 from .exceptions import FilterError, TimeoutError, ValidationError
-from .detectors import BaseDetector, DeceptionDetector, HarmfulPlanningDetector
+from .detectors import BaseDetector, DeceptionDetector, HarmfulPlanningDetector, SecurityThreatDetector, PromptInjectionDetector
 from .utils import validate_input, calculate_safety_score, sanitize_content
 
 
@@ -66,7 +66,14 @@ class PreprocessingStage(FilterStage):
     
     def _process_impl(self, content: str, context: Dict[str, Any]) -> tuple[str, bool, List[str]]:
         """Normalize and clean input text."""
+        import re
         original_content = content
+        reasons = []
+        
+        # Check for Unicode control characters before cleaning
+        unicode_pattern = r"[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\ufeff]"
+        if re.search(unicode_pattern, content):
+            reasons.append("unicode_control_chars")
         
         # Basic text cleaning
         content = content.strip()
@@ -76,7 +83,8 @@ class PreprocessingStage(FilterStage):
         content = content.encode('ascii', 'ignore').decode('ascii')
         
         was_modified = content != original_content
-        reasons = ["text_normalization"] if was_modified else []
+        if was_modified and "unicode_control_chars" not in reasons:
+            reasons.append("text_normalization")
         
         return content, was_modified, reasons
 
@@ -152,6 +160,8 @@ class SemanticFilterStage(FilterStage):
         self.detectors = [
             DeceptionDetector(),
             HarmfulPlanningDetector(),
+            SecurityThreatDetector(),
+            PromptInjectionDetector(),
         ]
     
     def _process_impl(self, content: str, context: Dict[str, Any]) -> tuple[str, bool, List[str]]:
@@ -162,15 +172,21 @@ class SemanticFilterStage(FilterStage):
         for detector in self.detectors:
             try:
                 result = detector.detect(content)
-                if result.is_harmful and result.confidence > self.threshold:
+                if result.is_harmful:
                     reasons.extend([f"{detector.name}:{pattern}" for pattern in result.detected_patterns])
                     overall_risk = max(overall_risk, result.confidence)
             except Exception as e:
                 logger.warning(f"Detector {detector.name} failed: {e}")
         
-        if overall_risk > self.threshold:
+        if overall_risk >= self.threshold:
             self.metrics["filtered"] += 1
-            return content, False, reasons
+            # Return True for was_modified to indicate content was flagged as harmful
+            return content, True, reasons
+        
+        # Also check if any patterns were detected even with lower confidence
+        if reasons:
+            self.metrics["filtered"] += 1
+            return content, True, reasons
         
         return content, False, []
 
@@ -329,6 +345,14 @@ class SafePathFilter:
                 base_score -= 0.5
             elif "harmful" in reason:
                 base_score -= 0.6
+            elif "security_threat_detector" in reason:
+                base_score -= 0.8  # Very severe penalty for security threats
+            elif "prompt_injection_detector" in reason:
+                base_score -= 0.7  # High penalty for prompt injection
+            elif "manipulation_detector" in reason:
+                base_score -= 0.5
+            elif "unicode_control_chars" in reason:
+                base_score -= 0.7  # High penalty for Unicode control chars
         
         # Ensure score is in valid range
         base_score = max(0.0, min(1.0, base_score))

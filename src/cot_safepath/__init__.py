@@ -14,6 +14,8 @@ from .core import SafePathFilter, FilterPipeline
 from .detectors import (
     DeceptionDetector,
     HarmfulPlanningDetector,
+    SecurityThreatDetector,
+    PromptInjectionDetector,
     CapabilityConcealmentDetector,
     ManipulationDetector,
 )
@@ -27,6 +29,8 @@ __all__ = [
     "FilterRequest",
     "DeceptionDetector",
     "HarmfulPlanningDetector",
+    "SecurityThreatDetector",
+    "PromptInjectionDetector",
     "CapabilityConcealmentDetector",
     "ManipulationDetector",
     "SafetyLevel",
