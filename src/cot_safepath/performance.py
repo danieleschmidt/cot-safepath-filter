@@ -7,6 +7,26 @@ import concurrent.futures
 import threading
 import time
 import logging
+import gc
+import os
+
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    # Mock psutil for basic functionality
+    class MockPsutil:
+        class Process:
+            def memory_info(self):
+                class MemInfo:
+                    rss = 1024 * 1024 * 100  # 100MB mock
+                return MemInfo()
+            
+            def cpu_percent(self):
+                return 50.0
+    
+    psutil = MockPsutil()
 from typing import List, Dict, Any, Optional, Callable, Union, Tuple
 from dataclasses import dataclass
 from functools import lru_cache, wraps
@@ -14,6 +34,7 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 import multiprocessing as mp
 from queue import Queue, Empty
 import weakref
+from contextlib import asynccontextmanager
 
 from .models import FilterRequest, FilterResult, SafetyScore, DetectionResult
 from .exceptions import TimeoutError, CapacityError
@@ -48,6 +69,17 @@ class PerformanceConfig:
     
     # Resource limits
     max_memory_mb: int = 512
+    cpu_threshold_percent: float = 80.0
+    
+    # Advanced optimization settings
+    enable_gpu_acceleration: bool = False
+    enable_model_quantization: bool = True
+    enable_dynamic_batching: bool = True
+    adaptive_timeout: bool = True
+    
+    # Monitoring settings
+    enable_performance_monitoring: bool = True
+    metrics_collection_interval: int = 60
     max_cpu_percent: int = 80
     
     # Optimization flags
@@ -90,28 +122,31 @@ class ResourceMonitor:
     def check_resource_limits(self) -> bool:
         """Check if system is within resource limits."""
         try:
-            import psutil
+            if PSUTIL_AVAILABLE:
+                # Check memory usage
+                process = psutil.Process()
+                memory_mb = process.memory_info().rss / 1024 / 1024
+                if memory_mb > self.config.max_memory_mb:
+                    logger.warning(f"Memory usage {memory_mb:.1f}MB exceeds limit {self.config.max_memory_mb}MB")
+                    # Trigger garbage collection
+                    gc.collect()
+                    return False
+                
+                # Check CPU usage
+                cpu_percent = process.cpu_percent()
+                if cpu_percent > self.config.cpu_threshold_percent:
+                    logger.warning(f"CPU usage {cpu_percent:.1f}% exceeds limit {self.config.cpu_threshold_percent}%")
+                    return False
+                
+                self._memory_usage = memory_mb
+                self._cpu_usage = cpu_percent
+            else:
+                # Mock values when psutil not available
+                self._memory_usage = 100.0
+                self._cpu_usage = 50.0
             
-            # Check memory usage
-            process = psutil.Process()
-            memory_mb = process.memory_info().rss / 1024 / 1024
-            if memory_mb > self.config.max_memory_mb:
-                logger.warning(f"Memory usage {memory_mb:.1f}MB exceeds limit {self.config.max_memory_mb}MB")
-                return False
-            
-            # Check CPU usage
-            cpu_percent = process.cpu_percent()
-            if cpu_percent > self.config.max_cpu_percent:
-                logger.warning(f"CPU usage {cpu_percent:.1f}% exceeds limit {self.config.max_cpu_percent}%")
-                return False
-            
-            self._memory_usage = memory_mb
-            self._cpu_usage = cpu_percent
             return True
             
-        except ImportError:
-            # psutil not available, assume OK
-            return True
         except Exception as e:
             logger.error(f"Resource check failed: {e}")
             return True  # Fail open

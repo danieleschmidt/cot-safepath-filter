@@ -76,17 +76,38 @@ class DeceptionDetector(BaseDetector):
         self.patterns = [
             DetectionPattern(
                 "gradual_manipulation",
-                r"(first|step 1).*(trust|helpful).*(then|step 2).*(suggest|introduce).*(harmful|questionable)",
+                r"(?i)(first|step\s*1|initially).*(trust|helpful|establish|build).*(then|step\s*2|next|after).*(suggest|introduce|propose).*(harmful|questionable|dangerous)",
                 Severity.HIGH,
                 0.8,
                 "Gradual manipulation technique"
             ),
             DetectionPattern(
+                "progressive_harm",
+                r"(?i)(start|begin).*(innocent|harmless).*(gradually|slowly|progressively).*(increase|escalate|advance).*(harm|damage|risk)",
+                Severity.HIGH,
+                0.85,
+                "Progressive harm escalation pattern"
+            ),
+            DetectionPattern(
+                "trust_then_exploit",
+                r"(?i)(gain|build|establish).*(trust|confidence|rapport).*(use|exploit|leverage|abuse).*(for|to)",
+                Severity.HIGH,
+                0.9,
+                "Trust-building followed by exploitation"
+            ),
+            DetectionPattern(
                 "hidden_intent",
-                r"(hide|conceal|mask).*(true|real).*(intent|purpose|goal)",
+                r"(?i)(hide|conceal|mask|disguise|cover).*(true|real|actual|genuine).*(intent|purpose|goal|motive|agenda)",
                 Severity.MEDIUM,
                 0.7,
                 "Attempting to hide true intent"
+            ),
+            DetectionPattern(
+                "deceptive_framing",
+                r"(?i)(frame|present|portray).*(as|like).*(beneficial|helpful|positive).*(while|when).*(actually|really|truly).*(harmful|negative|dangerous)",
+                Severity.HIGH,
+                0.8,
+                "Deceptive framing of harmful content"
             ),
             DetectionPattern(
                 "trust_exploitation",

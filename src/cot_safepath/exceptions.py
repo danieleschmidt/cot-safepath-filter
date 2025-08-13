@@ -232,3 +232,38 @@ class DatabaseError(SafePathError):
         super().__init__(message, code="DATABASE_ERROR", details=details, **kwargs)
         self.table = table
         self.operation = operation
+
+
+class DeploymentError(SafePathError):
+    """Exception raised during deployment operations."""
+    
+    def __init__(self, message: str, region: str = None, component: str = None, **kwargs):
+        details = kwargs.get('details', {})
+        details.update({
+            'region': region,
+            'component': component
+        })
+        super().__init__(message, code="DEPLOYMENT_ERROR", details=details, **kwargs)
+        self.region = region
+        self.component = component
+
+
+class RegionalComplianceError(SafePathError):
+    """Exception raised for regional compliance violations."""
+    
+    def __init__(self, message: str, region: str = None, framework: str = None, **kwargs):
+        details = kwargs.get('details', {})
+        details.update({
+            'region': region,
+            'compliance_framework': framework,
+            'log_level': 'critical'  # Compliance errors are critical
+        })
+        super().__init__(
+            message, 
+            code="COMPLIANCE_ERROR", 
+            details=details, 
+            recoverable=False,  # Compliance errors are not recoverable
+            **kwargs
+        )
+        self.region = region
+        self.framework = framework
