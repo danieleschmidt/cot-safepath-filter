@@ -241,6 +241,12 @@ class SafePathFilter:
         self.audit_logs: List[AuditLogEntry] = []
         self.cache: Dict[str, FilterResult] = {}
         
+        # Resource management (Generation 4 enhancements)
+        self._cleanup_registry = weakref.WeakSet() if 'weakref' in globals() else None
+        self._cache_cleanup_counter = 0
+        self._max_cache_size = 1000
+        self._cleanup_interval = 100
+        
         # Configure logging
         logging.basicConfig(level=logging.INFO)
         self.logger = logging.getLogger(__name__)
@@ -289,13 +295,21 @@ class SafePathFilter:
                 request_id=request.request_id,
             )
             
-            # Cache result
+            # Cache result with cleanup
             if self.config.enable_caching:
                 self._cache_result(request.content, result)
+                self._periodic_cleanup()
             
             # Log operation
             if self.config.log_filtered:
                 self._log_operation(request, result)
+            
+            # Register for cleanup
+            if hasattr(self, '_cleanup_registry'):
+                try:
+                    self._cleanup_registry.add(result)
+                except:
+                    pass
             
             return result
             
@@ -320,16 +334,20 @@ class SafePathFilter:
         return self.cache.get(content_hash)
     
     def _cache_result(self, content: str, result: FilterResult) -> None:
-        """Cache filtering result."""
+        """Cache filtering result with enhanced cleanup."""
         content_hash = hashlib.sha256(content.encode()).hexdigest()
         self.cache[content_hash] = result
         
-        # Simple cache size management
-        if len(self.cache) > 1000:
-            # Remove oldest entries (simple FIFO)
-            oldest_keys = list(self.cache.keys())[:100]
+        # Enhanced cache size management
+        if len(self.cache) > self._max_cache_size:
+            # Remove oldest 20% of entries
+            to_remove = len(self.cache) // 5
+            oldest_keys = list(self.cache.keys())[:to_remove]
             for key in oldest_keys:
                 del self.cache[key]
+            
+            # Force garbage collection
+            gc.collect()
     
     def _calculate_safety_score(self, content: str, reasons: List[str]) -> SafetyScore:
         """Calculate overall safety score based on filtering results."""
@@ -396,6 +414,33 @@ class SafePathFilter:
         )
         
         self.audit_logs.append(log_entry)
+        
+        # Cleanup old audit logs to prevent memory bloat
+        if len(self.audit_logs) > 10000:
+            self.audit_logs = self.audit_logs[-5000:]  # Keep last 5000 entries
+    
+    def _periodic_cleanup(self) -> None:
+        """Periodic cleanup to prevent memory leaks."""
+        self._cache_cleanup_counter += 1
+        
+        if self._cache_cleanup_counter >= self._cleanup_interval:
+            self._cache_cleanup_counter = 0
+            
+            # Force garbage collection
+            gc.collect()
+            
+            # Clear weak references to dead objects
+            if hasattr(self, '_cleanup_registry'):
+                # WeakSet automatically removes dead references
+                pass
+    
+    def cleanup(self) -> None:
+        """Manual cleanup method for resource management."""
+        self.cache.clear()
+        self.audit_logs.clear()
+        if hasattr(self, '_cleanup_registry'):
+            self._cleanup_registry.clear()
+        gc.collect()
         
         # Keep audit log size manageable
         if len(self.audit_logs) > 10000:

@@ -21,6 +21,32 @@ from .detectors import (
 )
 from .models import SafetyLevel, FilterConfig, SafetyScore, FilterResult, FilterRequest
 from .exceptions import SafePathError, FilterError, DetectorError
+# Generation 4 enhancements (conditionally imported)
+try:
+    from .advanced_performance import (
+        AsyncFilterProcessor,
+        AdaptivePerformanceOptimizer,
+        IntelligentCacheManager,
+        AdvancedPerformanceConfig,
+    )
+    from .global_deployment import (
+        GlobalDeploymentManager,
+        InternationalizationManager,
+        DeploymentRegion,
+        ComplianceFramework,
+    )
+    GENERATION_4_AVAILABLE = True
+except ImportError as e:
+    # Graceful fallback when advanced features not available
+    GENERATION_4_AVAILABLE = False
+    AsyncFilterProcessor = None
+    AdaptivePerformanceOptimizer = None
+    IntelligentCacheManager = None
+    AdvancedPerformanceConfig = None
+    GlobalDeploymentManager = None
+    InternationalizationManager = None
+    DeploymentRegion = None
+    ComplianceFramework = None
 
 __all__ = [
     "SafePathFilter",
@@ -39,4 +65,14 @@ __all__ = [
     "SafePathError",
     "FilterError", 
     "DetectorError",
+    # Generation 4 enhancements (if available)
+    "GENERATION_4_AVAILABLE",
+    "AsyncFilterProcessor",
+    "AdaptivePerformanceOptimizer",
+    "IntelligentCacheManager",
+    "AdvancedPerformanceConfig",
+    "GlobalDeploymentManager",
+    "InternationalizationManager",
+    "DeploymentRegion",
+    "ComplianceFramework",
 ]
