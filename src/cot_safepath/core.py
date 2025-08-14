@@ -5,6 +5,8 @@ Core filtering engine for the CoT SafePath Filter.
 import time
 import hashlib
 import asyncio
+import gc
+import weakref
 from typing import List, Optional, Dict, Any, Callable
 from datetime import datetime
 import logging
