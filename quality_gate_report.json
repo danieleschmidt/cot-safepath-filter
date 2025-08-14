@@ -3,13 +3,13 @@
   "critical_passed": false,
   "passed_gates": "6/8",
   "overall_score": 0.9020833333333333,
-  "total_duration_ms": 68,
+  "total_duration_ms": 81,
   "gates": {
     "Functionality Tests": {
       "passed": false,
       "score": 0.6666666666666666,
       "critical": true,
-      "duration_ms": 11,
+      "duration_ms": 13,
       "details": {
         "Safe helpful content": "\u2705 Pass",
         "Educational content": "\u2705 Pass",
@@ -28,7 +28,7 @@
       "passed": true,
       "score": 1.0,
       "critical": true,
-      "duration_ms": 11,
+      "duration_ms": 13,
       "details": {
         "XSS injection": "\u2705 Blocked: True",
         "SQL injection": "\u2705 Blocked: True",
@@ -53,7 +53,7 @@
         "single_latency_ms": "0.2",
         "avg_latency_ms": "0.2",
         "concurrent_latency_ms": "0.3",
-        "throughput_rps": "5619.0",
+        "throughput_rps": "5633.3",
         "single_latency_check": "\u2705 Pass",
         "avg_latency_check": "\u2705 Pass",
         "concurrent_latency_check": "\u2705 Pass"
@@ -63,12 +63,12 @@
       "passed": true,
       "score": 0.85,
       "critical": false,
-      "duration_ms": 13,
+      "duration_ms": 14,
       "details": {
         "memory_usage": "\u26a0\ufe0f psutil not available",
         "latency_stability": "\u2705 Stable",
         "avg_latency_ms": "0.1",
-        "max_latency_ms": "0.3",
+        "max_latency_ms": "0.2",
         "latency_variance": "0.0",
         "concurrent_processing": "\u2705 20/20 in 0.0s"
       }
@@ -77,7 +77,7 @@
       "passed": false,
       "score": 0.7,
       "critical": false,
-      "duration_ms": 21,
+      "duration_ms": 29,
       "details": {
         "error_empty_content": "\u2705 Exception: FilterError",
         "error_very_long": "\u2705 Exception: FilterError",
@@ -86,7 +86,7 @@
         "consistency": "\u2705 Consistent",
         "repeated_calls": "10 calls",
         "score_range": "1.000 - 1.000",
-        "resource_cleanup": "\u274c 16912 objects leaked"
+        "resource_cleanup": "\u274c 18970 objects leaked"
       }
     },
     "Code Quality": {
