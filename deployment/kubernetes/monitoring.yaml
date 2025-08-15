@@ -1,0 +1,234 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: safepath-filter-metrics
+  namespace: safepath
+  labels:
+    app.kubernetes.io/name: cot-safepath-filter
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cot-safepath-filter
+      app.kubernetes.io/component: service
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics
+    honorLabels: true
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: safepath
+  labels:
+    app.kubernetes.io/name: cot-safepath-filter
+    app.kubernetes.io/component: prometheus-rules
+data:
+  safepath.rules.yaml: |
+    groups:
+    - name: safepath-filter
+      rules:
+      # High error rate alert
+      - alert: SafePathHighErrorRate
+        expr: rate(safepath_filter_errors_total[5m]) / rate(safepath_filter_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter error rate is high"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+      
+      # High latency alert
+      - alert: SafePathHighLatency
+        expr: histogram_quantile(0.95, rate(safepath_filter_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter latency is high"
+          description: "95th percentile latency is {{ $value }}s for the last 5 minutes"
+      
+      # Low throughput alert
+      - alert: SafePathLowThroughput
+        expr: rate(safepath_filter_requests_total[5m]) < 1
+        for: 5m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter throughput is low"
+          description: "Request rate is {{ $value }} requests/second for the last 5 minutes"
+      
+      # Pod down alert
+      - alert: SafePathPodDown
+        expr: up{job="safepath-filter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter pod is down"
+          description: "Pod {{ $labels.instance }} has been down for more than 1 minute"
+      
+      # High memory usage alert
+      - alert: SafePathHighMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"safepath-filter-.*"} / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter memory usage is high"
+          description: "Memory usage is {{ $value | humanizePercentage }} for pod {{ $labels.pod }}"
+      
+      # High CPU usage alert
+      - alert: SafePathHighCPUUsage
+        expr: rate(container_cpu_usage_seconds_total{pod=~"safepath-filter-.*"}[5m]) / container_spec_cpu_quota * container_spec_cpu_period > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "SafePath filter CPU usage is high"
+          description: "CPU usage is {{ $value | humanizePercentage }} for pod {{ $labels.pod }}"
+      
+      # Security threat detection alert
+      - alert: SafePathSecurityThreatsDetected
+        expr: increase(safepath_security_threats_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: safepath-filter
+        annotations:
+          summary: "Multiple security threats detected"
+          description: "{{ $value }} security threats detected in the last 5 minutes"
+      
+      # Self-healing activation alert
+      - alert: SafePathSelfHealingActivated
+        expr: increase(safepath_healing_events_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          service: safepath-filter
+        annotations:
+          summary: "Self-healing system activated"
+          description: "Self-healing system has been activated {{ $value }} times in the last 5 minutes"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard
+  namespace: safepath
+  labels:
+    app.kubernetes.io/name: cot-safepath-filter
+    app.kubernetes.io/component: grafana-dashboard
+    grafana_dashboard: "1"
+data:
+  safepath-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "SafePath Filter Dashboard",
+        "tags": ["safepath", "ai-safety"],
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Request Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(safepath_filter_requests_total[5m])",
+                "legendFormat": "Requests/sec"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "reqps"
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Error Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "rate(safepath_filter_errors_total[5m]) / rate(safepath_filter_requests_total[5m])",
+                "legendFormat": "Error Rate"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percentunit",
+                "max": 1,
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": 0},
+                    {"color": "yellow", "value": 0.05},
+                    {"color": "red", "value": 0.1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Response Time",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, rate(safepath_filter_duration_seconds_bucket[5m]))",
+                "legendFormat": "50th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.95, rate(safepath_filter_duration_seconds_bucket[5m]))",
+                "legendFormat": "95th percentile"
+              },
+              {
+                "expr": "histogram_quantile(0.99, rate(safepath_filter_duration_seconds_bucket[5m]))",
+                "legendFormat": "99th percentile"
+              }
+            ],
+            "yAxes": [
+              {"unit": "s", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Safety Score Distribution",
+            "type": "histogram",
+            "targets": [
+              {
+                "expr": "safepath_filter_safety_score",
+                "legendFormat": "Safety Score"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 5,
+            "title": "Security Threats",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(safepath_security_threats_total[5m])",
+                "legendFormat": "Threats/sec"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ],
+        "refresh": "5s",
+        "time": {"from": "now-1h", "to": "now"}
+      }
+    }

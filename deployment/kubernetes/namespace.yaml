@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: safepath
+  labels:
+    name: safepath
+    environment: production
+    app.kubernetes.io/name: cot-safepath-filter
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
