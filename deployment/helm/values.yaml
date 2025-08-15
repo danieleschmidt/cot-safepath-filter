@@ -1,0 +1,329 @@
+# Default values for cot-safepath-filter
+# This is a YAML-formatted file.
+
+# Global configuration
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Image configuration
+image:
+  registry: docker.io
+  repository: terragonlabs/cot-safepath-filter
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Application configuration
+app:
+  name: cot-safepath-filter
+  version: "1.0.0"
+  environment: production
+  logLevel: INFO
+  
+  # Self-healing configuration
+  selfHealing:
+    enabled: true
+    monitoringInterval: 30
+    healingCooldownMinutes: 5
+    maxHealingAttempts: 3
+    
+  # Performance optimization
+  performance:
+    optimizationEnabled: true
+    strategy: adaptive
+    autoScalingEnabled: true
+    caching:
+      enabled: true
+      sizeMB: 100
+      policy: intelligent
+      ttlSeconds: 3600
+    
+    concurrentProcessing:
+      enabled: true
+      workerPoolSize: 4
+      maxWorkerPools: 8
+      loadBalancingStrategy: adaptive
+      
+  # Security configuration
+  security:
+    hardeningEnabled: true
+    rateLimiting:
+      enabled: true
+      maxRequestsPerMinute: 60
+      maxRequestsPerHour: 1000
+    payloadAnalysis:
+      enabled: true
+      strictMode: false
+    authentication:
+      required: true
+      
+  # Filter configuration
+  filter:
+    defaultSafetyLevel: balanced
+    enableAllDetectors: true
+    confidenceThreshold: 0.7
+
+# Deployment configuration
+replicaCount: 3
+
+deployment:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  
+  annotations: {}
+  labels: {}
+  
+  podAnnotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+    
+  podLabels: {}
+  
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+  labels: {}
+  
+  metrics:
+    enabled: true
+    port: 9090
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9090"
+      prometheus.io/path: "/metrics"
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limit-connections: "100"
+    nginx.ingress.kubernetes.io/rate-limit-rps: "50"
+  hosts:
+    - host: safepath.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: safepath-tls
+      hosts:
+        - safepath.example.com
+
+# Resource configuration
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+  limits:
+    memory: "2Gi"
+    cpu: "1000m"
+
+# Health checks
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /ready
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+# Autoscaling configuration
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  customMetrics:
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "30"
+  
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+
+# Vertical Pod Autoscaler
+vpa:
+  enabled: false
+  updateMode: "Auto"
+  resourcePolicy:
+    maxAllowed:
+      cpu: "2"
+      memory: "4Gi"
+    minAllowed:
+      cpu: "100m"
+      memory: "128Mi"
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # maxUnavailable: 1
+
+# Service Account
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+# RBAC
+rbac:
+  create: true
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Node selection
+nodeSelector: {}
+tolerations: []
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cot-safepath-filter
+          topologyKey: kubernetes.io/hostname
+
+# Persistence
+persistence:
+  enabled: false
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+# ConfigMaps and Secrets
+configMaps:
+  app:
+    create: true
+    data: {}
+  filter:
+    create: true
+    data: {}
+
+secrets:
+  app:
+    create: true
+    data: {}
+
+# External dependencies
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "safepath-redis-password"
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+  replica:
+    replicaCount: 2
+    persistence:
+      enabled: true
+      size: 2Gi
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "safepath-postgres-password"
+    database: "safepath"
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+
+# Monitoring
+monitoring:
+  enabled: true
+  
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    
+  prometheusRule:
+    enabled: true
+    
+  grafana:
+    enabled: true
+    dashboard:
+      enabled: true
+      
+  prometheus:
+    enabled: false  # Assumes external Prometheus
+
+# Backup
+backup:
+  enabled: false
+  schedule: "0 2 * * *"
+  retention: 7
+  
+# Testing
+tests:
+  enabled: true
+  image:
+    repository: busybox
+    tag: "1.35"
