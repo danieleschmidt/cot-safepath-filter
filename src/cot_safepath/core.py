@@ -98,7 +98,9 @@ class TokenFilterStage(FilterStage):
         super().__init__("token_filter")
         self.blocked_tokens = set(blocked_tokens or [
             "kill", "poison", "explosive", "weapon", "bomb", "drug",
-            "hack", "exploit", "bypass", "manipulate", "deceive"
+            "hack", "exploit", "bypass", "manipulate", "deceive",
+            "harmful", "dangerous", "illegal", "violence", "destroy",
+            "attack", "threat", "steal", "fraud", "scam"
         ])
     
     def _process_impl(self, content: str, context: Dict[str, Any]) -> tuple[str, bool, List[str]]:
@@ -354,31 +356,62 @@ class SafePathFilter:
     def _calculate_safety_score(self, content: str, reasons: List[str]) -> SafetyScore:
         """Calculate overall safety score based on filtering results."""
         base_score = 1.0  # Start with safe assumption
+        max_penalty = 0.0  # Track the highest penalty applied
         
-        # Reduce score based on filter triggers
+        # Reduce score based on filter triggers with enhanced penalties
         for reason in reasons:
             if "blocked_token" in reason:
-                base_score -= 0.3
+                penalty = 0.6  # Increased from 0.3
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "pattern" in reason:
-                base_score -= 0.4
+                penalty = 0.7  # Increased from 0.4
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "deception" in reason:
-                base_score -= 0.5
+                penalty = 0.8  # Increased from 0.5
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "harmful" in reason:
-                base_score -= 0.6
+                penalty = 0.9  # Increased from 0.6
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "security_threat_detector" in reason:
-                base_score -= 0.8  # Very severe penalty for security threats
+                penalty = 1.0  # Maximum penalty for security threats
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "prompt_injection_detector" in reason:
-                base_score -= 0.7  # High penalty for prompt injection
+                penalty = 0.9  # Increased from 0.7
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "manipulation_detector" in reason:
-                base_score -= 0.5
+                penalty = 0.7  # Increased from 0.5
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
+            elif "harmful_planning_detector" in reason:
+                penalty = 0.8  # New detector penalty
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
             elif "unicode_control_chars" in reason:
-                base_score -= 0.7  # High penalty for Unicode control chars
+                penalty = 0.8  # Increased from 0.7
+                base_score -= penalty
+                max_penalty = max(max_penalty, penalty)
+        
+        # Apply additional penalty for multiple violations
+        if len(reasons) > 1:
+            multi_violation_penalty = min(0.3, len(reasons) * 0.1)
+            base_score -= multi_violation_penalty
         
         # Ensure score is in valid range
         base_score = max(0.0, min(1.0, base_score))
         
-        # Determine if content is safe based on configured threshold
-        is_safe = base_score >= self.config.filter_threshold
+        # Enhanced safety determination - more conservative
+        # If any high-risk pattern detected, mark as unsafe regardless of score
+        high_risk_patterns = ["security_threat_detector", "prompt_injection_detector", "harmful_planning_detector"]
+        has_high_risk = any(any(pattern in reason for pattern in high_risk_patterns) for reason in reasons)
+        
+        # Determine if content is safe based on enhanced criteria
+        is_safe = base_score >= self.config.filter_threshold and not has_high_risk
         
         # Set severity based on score
         if base_score >= 0.8:

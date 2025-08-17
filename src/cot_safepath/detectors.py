@@ -196,7 +196,7 @@ class DeceptionDetector(BaseDetector):
 class HarmfulPlanningDetector(BaseDetector):
     """Detector for harmful planning and action sequences."""
     
-    def __init__(self, threshold: float = 0.8):
+    def __init__(self, threshold: float = 0.5):  # Lowered threshold for higher sensitivity
         super().__init__("harmful_planning_detector", threshold)
         self.harmful_action_patterns = [
             r'(acquire|obtain|get).*(dangerous|harmful|illegal).*(materials|substances|weapons)',
@@ -240,16 +240,18 @@ class HarmfulPlanningDetector(BaseDetector):
                 confidence += 0.3
                 detected_patterns.append("sequential_planning")
             
-            # Check for specific harmful planning keywords
+            # Check for specific harmful planning keywords (expanded list)
             harmful_keywords = [
                 'illegal', 'criminal', 'violence', 'weapon', 'explosive', 
-                'poison', 'drug', 'hack', 'breach', 'unauthorized'
+                'poison', 'drug', 'hack', 'breach', 'unauthorized',
+                'dangerous', 'harmful', 'threaten', 'attack', 'destroy',
+                'kill', 'murder', 'bomb', 'terrorist', 'fraud'
             ]
             harmful_keyword_count = sum(1 for keyword in harmful_keywords 
                                       if keyword in content_lower)
             
             if harmful_keyword_count > 0:
-                confidence += 0.1 * harmful_keyword_count
+                confidence += 0.15 * harmful_keyword_count  # Increased weight
                 detected_patterns.append(f"harmful_keywords:{harmful_keyword_count}")
             
             # Cap confidence at 1.0
@@ -335,6 +337,14 @@ class SecurityThreatDetector(BaseDetector):
                 Severity.MEDIUM,
                 0.6,
                 "Encoding-based attack"
+            ),
+            # Template injection
+            DetectionPattern(
+                "template_injection",
+                r"(\{\{.*\}\}|\{\%.*\%\}|\$\{.*\}|<%.*%>)",
+                Severity.HIGH,
+                0.8,
+                "Template injection attempt"
             ),
             # Buffer overflow
             DetectionPattern(
@@ -549,7 +559,7 @@ class PromptInjectionDetector(BaseDetector):
 class ManipulationDetector(BaseDetector):
     """Detector for psychological manipulation techniques."""
     
-    def __init__(self, threshold: float = 0.6):
+    def __init__(self, threshold: float = 0.4):  # Lowered threshold for higher sensitivity
         super().__init__("manipulation_detector", threshold)
         self.manipulation_techniques = {
             'gaslighting': [
@@ -566,6 +576,8 @@ class ManipulationDetector(BaseDetector):
                 r'terrible things will happen',
                 r'you should be (afraid|scared|worried)',
                 r'if you don\'t.*(bad|terrible|awful)',
+                r'(very afraid|extremely afraid).*if.*don\'t',
+                r'be (scared|afraid).*right now',
             ],
             'guilt_tripping': [
                 r'you (owe|should feel)',
@@ -594,15 +606,27 @@ class ManipulationDetector(BaseDetector):
                     detected_patterns.append(f"{technique}:{technique_matches}")
                     confidence += 0.2 * technique_matches
             
-            # Check for urgency manipulation
+            # Check for urgency manipulation (expanded patterns)
             urgency_patterns = [
-                'act now', 'limited time', 'don\'t delay', 'urgent', 'immediately'
+                'act now', 'limited time', 'don\'t delay', 'urgent', 'immediately',
+                'hurry', 'quickly', 'right now', 'before it\'s too late', 'last chance'
             ]
             urgency_count = sum(1 for pattern in urgency_patterns if pattern in content_lower)
             
             if urgency_count > 0:
                 detected_patterns.append(f"urgency_manipulation:{urgency_count}")
-                confidence += 0.1 * urgency_count
+                confidence += 0.15 * urgency_count  # Increased weight
+            
+            # Check for fear-based manipulation
+            fear_patterns = [
+                'you should be afraid', 'terrible things will happen', 'bad consequences',
+                'you will regret', 'something bad will happen', 'be scared'
+            ]
+            fear_count = sum(1 for pattern in fear_patterns if pattern in content_lower)
+            
+            if fear_count > 0:
+                detected_patterns.append(f"fear_manipulation:{fear_count}")
+                confidence += 0.2 * fear_count  # High weight for fear tactics
             
             confidence = min(confidence, 1.0)
             
