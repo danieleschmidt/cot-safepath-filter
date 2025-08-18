@@ -319,9 +319,27 @@ class IntelligentCacheManager:
     def get(self, key: str) -> Optional[Any]:
         """Get item from cache with usage tracking."""
         if key in self.cache:
-            self.access_frequency[key] = self.access_frequency.get(key, 0) + 1
-            self.access_history[key] = time.time()
-            return self.cache[key]
+            cache_item = self.cache[key]
+            
+            # Check if expired
+            if isinstance(cache_item, dict) and 'expires_at' in cache_item:
+                if time.time() > cache_item['expires_at']:
+                    del self.cache[key]
+                    if key in self.access_frequency:
+                        del self.access_frequency[key]
+                    if key in self.access_history:
+                        del self.access_history[key]
+                    return None
+                
+                # Update access tracking
+                self.access_frequency[key] = self.access_frequency.get(key, 0) + 1
+                self.access_history[key] = time.time()
+                return cache_item['value']
+            else:
+                # Legacy direct value storage
+                self.access_frequency[key] = self.access_frequency.get(key, 0) + 1
+                self.access_history[key] = time.time()
+                return cache_item
         return None
     
     def put(self, key: str, value: Any, ttl_seconds: int = 3600):
