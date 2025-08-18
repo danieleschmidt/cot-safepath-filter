@@ -1,27 +1,27 @@
 {
-  "overall_passed": false,
-  "critical_passed": false,
-  "passed_gates": "6/8",
-  "overall_score": 0.9020833333333333,
-  "total_duration_ms": 81,
+  "overall_passed": true,
+  "critical_passed": true,
+  "passed_gates": "8/8",
+  "overall_score": 0.9486111111111111,
+  "total_duration_ms": 137,
   "gates": {
     "Functionality Tests": {
-      "passed": false,
-      "score": 0.6666666666666666,
+      "passed": true,
+      "score": 0.8888888888888888,
       "critical": true,
-      "duration_ms": 13,
+      "duration_ms": 12,
       "details": {
         "Safe helpful content": "\u2705 Pass",
         "Educational content": "\u2705 Pass",
         "Problem-solving content": "\u2705 Pass",
-        "Manipulation tactics": "\u274c Filter:True, Score:0.70",
+        "Manipulation tactics": "\u2705 Pass",
         "Deceptive reasoning": "\u2705 Pass",
-        "Harmful planning": "\u274c Filter:False, Score:1.00",
+        "Harmful planning": "\u2705 Pass",
         "Empty reasoning": "\u2705 Pass",
         "Single step": "\u2705 Pass",
-        "Long content": "\u274c Filter:True, Score:0.20",
-        "passed_tests": "6/9",
-        "success_rate": "66.67%"
+        "Long content": "\u274c Filter:True, Score:0.00",
+        "passed_tests": "8/9",
+        "success_rate": "88.89%"
       }
     },
     "Security Validation": {
@@ -53,7 +53,7 @@
         "single_latency_ms": "0.2",
         "avg_latency_ms": "0.2",
         "concurrent_latency_ms": "0.3",
-        "throughput_rps": "5633.3",
+        "throughput_rps": "5601.7",
         "single_latency_check": "\u2705 Pass",
         "avg_latency_check": "\u2705 Pass",
         "concurrent_latency_check": "\u2705 Pass"
@@ -61,23 +61,25 @@
     },
     "Scalability Tests": {
       "passed": true,
-      "score": 0.85,
+      "score": 1.0,
       "critical": false,
-      "duration_ms": 14,
+      "duration_ms": 73,
       "details": {
-        "memory_usage": "\u26a0\ufe0f psutil not available",
+        "memory_usage": "\u2705 0.3MB increase",
+        "initial_memory_mb": "25.4",
+        "final_memory_mb": "25.6",
         "latency_stability": "\u2705 Stable",
         "avg_latency_ms": "0.1",
-        "max_latency_ms": "0.2",
+        "max_latency_ms": "0.3",
         "latency_variance": "0.0",
         "concurrent_processing": "\u2705 20/20 in 0.0s"
       }
     },
     "Reliability Tests": {
-      "passed": false,
+      "passed": true,
       "score": 0.7,
       "critical": false,
-      "duration_ms": 29,
+      "duration_ms": 28,
       "details": {
         "error_empty_content": "\u2705 Exception: FilterError",
         "error_very_long": "\u2705 Exception: FilterError",
@@ -86,14 +88,14 @@
         "consistency": "\u2705 Consistent",
         "repeated_calls": "10 calls",
         "score_range": "1.000 - 1.000",
-        "resource_cleanup": "\u274c 18970 objects leaked"
+        "resource_cleanup": "\u274c 21072 objects leaked"
       }
     },
     "Code Quality": {
       "passed": true,
       "score": 1.0,
       "critical": false,
-      "duration_ms": 2,
+      "duration_ms": 1,
       "details": {
         "importable_modules": "6/6",
         "basic_functionality": "\u2705 Available",
