@@ -35,10 +35,30 @@ try:
         DeploymentRegion,
         ComplianceFramework,
     )
+    from .quantum_intelligence import (
+        QuantumIntelligenceManager,
+        QuantumIntelligenceCore,
+        PatternLearner,
+        ThresholdOptimizer,
+        PredictiveEngine,
+        SelfHealingSystem,
+    )
+    from .research_framework import (
+        BaselineEstablisher,
+        ExperimentRunner,
+        StatisticalValidator,
+        ResearchReportGenerator,
+        ExperimentConfig,
+        ExperimentResult,
+    )
     GENERATION_4_AVAILABLE = True
+    QUANTUM_INTELLIGENCE_AVAILABLE = True
+    RESEARCH_FRAMEWORK_AVAILABLE = True
 except ImportError as e:
     # Graceful fallback when advanced features not available
     GENERATION_4_AVAILABLE = False
+    QUANTUM_INTELLIGENCE_AVAILABLE = False
+    RESEARCH_FRAMEWORK_AVAILABLE = False
     AsyncFilterProcessor = None
     AdaptivePerformanceOptimizer = None
     IntelligentCacheManager = None
@@ -47,6 +67,18 @@ except ImportError as e:
     InternationalizationManager = None
     DeploymentRegion = None
     ComplianceFramework = None
+    QuantumIntelligenceManager = None
+    QuantumIntelligenceCore = None
+    PatternLearner = None
+    ThresholdOptimizer = None
+    PredictiveEngine = None
+    SelfHealingSystem = None
+    BaselineEstablisher = None
+    ExperimentRunner = None
+    StatisticalValidator = None
+    ResearchReportGenerator = None
+    ExperimentConfig = None
+    ExperimentResult = None
 
 __all__ = [
     "SafePathFilter",
@@ -67,6 +99,8 @@ __all__ = [
     "DetectorError",
     # Generation 4 enhancements (if available)
     "GENERATION_4_AVAILABLE",
+    "QUANTUM_INTELLIGENCE_AVAILABLE",
+    "RESEARCH_FRAMEWORK_AVAILABLE",
     "AsyncFilterProcessor",
     "AdaptivePerformanceOptimizer",
     "IntelligentCacheManager",
@@ -75,4 +109,18 @@ __all__ = [
     "InternationalizationManager",
     "DeploymentRegion",
     "ComplianceFramework",
+    # Quantum Intelligence capabilities
+    "QuantumIntelligenceManager",
+    "QuantumIntelligenceCore",
+    "PatternLearner",
+    "ThresholdOptimizer",
+    "PredictiveEngine",
+    "SelfHealingSystem",
+    # Research Framework capabilities
+    "BaselineEstablisher",
+    "ExperimentRunner",
+    "StatisticalValidator",
+    "ResearchReportGenerator",
+    "ExperimentConfig",
+    "ExperimentResult",
 ]

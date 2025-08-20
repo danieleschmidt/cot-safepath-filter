@@ -2,14 +2,14 @@
   "overall_passed": true,
   "critical_passed": true,
   "passed_gates": "8/8",
-  "overall_score": 0.9486111111111111,
-  "total_duration_ms": 132,
+  "overall_score": 0.929861111111111,
+  "total_duration_ms": 75,
   "gates": {
     "Functionality Tests": {
       "passed": true,
       "score": 0.8888888888888888,
       "critical": true,
-      "duration_ms": 13,
+      "duration_ms": 10,
       "details": {
         "Safe helpful content": "\u2705 Pass",
         "Educational content": "\u2705 Pass",
@@ -28,7 +28,7 @@
       "passed": true,
       "score": 1.0,
       "critical": true,
-      "duration_ms": 13,
+      "duration_ms": 11,
       "details": {
         "XSS injection": "\u2705 Blocked: True",
         "SQL injection": "\u2705 Blocked: True",
@@ -48,12 +48,12 @@
       "passed": true,
       "score": 1.0,
       "critical": false,
-      "duration_ms": 6,
+      "duration_ms": 5,
       "details": {
         "single_latency_ms": "0.2",
-        "avg_latency_ms": "0.2",
+        "avg_latency_ms": "0.1",
         "concurrent_latency_ms": "0.2",
-        "throughput_rps": "5444.7",
+        "throughput_rps": "6807.3",
         "single_latency_check": "\u2705 Pass",
         "avg_latency_check": "\u2705 Pass",
         "concurrent_latency_check": "\u2705 Pass"
@@ -61,13 +61,11 @@
     },
     "Scalability Tests": {
       "passed": true,
-      "score": 1.0,
+      "score": 0.85,
       "critical": false,
-      "duration_ms": 65,
+      "duration_ms": 15,
       "details": {
-        "memory_usage": "\u2705 0.3MB increase",
-        "initial_memory_mb": "25.4",
-        "final_memory_mb": "25.7",
+        "memory_usage": "\u26a0\ufe0f psutil not available",
         "latency_stability": "\u2705 Stable",
         "avg_latency_ms": "0.1",
         "max_latency_ms": "0.2",
@@ -79,7 +77,7 @@
       "passed": true,
       "score": 0.7,
       "critical": false,
-      "duration_ms": 26,
+      "duration_ms": 24,
       "details": {
         "error_empty_content": "\u2705 Exception: FilterError",
         "error_very_long": "\u2705 Exception: FilterError",
@@ -88,7 +86,7 @@
         "consistency": "\u2705 Consistent",
         "repeated_calls": "10 calls",
         "score_range": "1.000 - 1.000",
-        "resource_cleanup": "\u274c 20913 objects leaked"
+        "resource_cleanup": "\u274c 18972 objects leaked"
       }
     },
     "Code Quality": {
