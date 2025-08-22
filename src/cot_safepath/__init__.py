@@ -80,6 +80,55 @@ except ImportError as e:
     ExperimentConfig = None
     ExperimentResult = None
 
+# Generation 5 enhancements (conditionally imported)
+try:
+    from .generation_5_lite import (
+        MultimodalProcessorLite,
+        FederatedLearningManagerLite,
+        NeuralArchitectureSearchLite,
+        Generation5ManagerLite,
+        Generation5SafePathFilterLite,
+        ModalityType as Generation5ModalityType,
+        MultimodalInput as Generation5MultimodalInput,
+        MultimodalAnalysis as Generation5MultimodalAnalysis,
+        FederatedLearningUpdate as Generation5FederatedLearningUpdate,
+    )
+    from .threat_intelligence import (
+        ThreatIntelligenceManager,
+        ThreatIntelligenceFeed,
+        ThreatPatternLearner,
+        ThreatType,
+        ThreatSeverity,
+        ThreatIndicator,
+        ThreatPattern,
+        ThreatEvent,
+    )
+    GENERATION_5_AVAILABLE = True
+    MULTIMODAL_PROCESSING_AVAILABLE = True
+    THREAT_INTELLIGENCE_AVAILABLE = True
+except ImportError as e:
+    # Graceful fallback when Generation 5 features not available
+    GENERATION_5_AVAILABLE = False
+    MULTIMODAL_PROCESSING_AVAILABLE = False
+    THREAT_INTELLIGENCE_AVAILABLE = False
+    MultimodalProcessorLite = None
+    FederatedLearningManagerLite = None
+    NeuralArchitectureSearchLite = None
+    Generation5ManagerLite = None
+    Generation5SafePathFilterLite = None
+    Generation5ModalityType = None
+    Generation5MultimodalInput = None
+    Generation5MultimodalAnalysis = None
+    Generation5FederatedLearningUpdate = None
+    ThreatIntelligenceManager = None
+    ThreatIntelligenceFeed = None
+    ThreatPatternLearner = None
+    ThreatType = None
+    ThreatSeverity = None
+    ThreatIndicator = None
+    ThreatPattern = None
+    ThreatEvent = None
+
 __all__ = [
     "SafePathFilter",
     "FilterPipeline", 
@@ -123,4 +172,25 @@ __all__ = [
     "ResearchReportGenerator",
     "ExperimentConfig",
     "ExperimentResult",
+    # Generation 5 capabilities
+    "GENERATION_5_AVAILABLE",
+    "MULTIMODAL_PROCESSING_AVAILABLE", 
+    "THREAT_INTELLIGENCE_AVAILABLE",
+    "MultimodalProcessorLite",
+    "FederatedLearningManagerLite",
+    "NeuralArchitectureSearchLite", 
+    "Generation5ManagerLite",
+    "Generation5SafePathFilterLite",
+    "Generation5ModalityType",
+    "Generation5MultimodalInput",
+    "Generation5MultimodalAnalysis",
+    "Generation5FederatedLearningUpdate",
+    "ThreatIntelligenceManager",
+    "ThreatIntelligenceFeed",
+    "ThreatPatternLearner",
+    "ThreatType",
+    "ThreatSeverity", 
+    "ThreatIndicator",
+    "ThreatPattern",
+    "ThreatEvent",
 ]
