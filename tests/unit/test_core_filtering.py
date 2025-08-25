@@ -501,12 +501,12 @@ class TestSafePathFilterIntegration:
         filter_engine = SafePathFilter()
         
         # Test empty content
-        with pytest.raises(ValidationError):
+        with pytest.raises(FilterError):
             request = FilterRequest(content="")
             filter_engine.filter(request)
         
         # Test too large content
-        with pytest.raises(ValidationError):
+        with pytest.raises(FilterError):
             large_content = "x" * 60000
             request = FilterRequest(content=large_content)
             filter_engine.filter(request)

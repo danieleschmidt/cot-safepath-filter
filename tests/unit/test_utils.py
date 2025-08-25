@@ -511,7 +511,7 @@ class TestMeasurePerformance:
         """Test that decorator preserves function metadata."""
         @measure_performance
         def documented_function():
-            \"\"\"This function has documentation.\"\"\"
+            """This function has documentation."""
             return "result"
         
         assert documented_function.__name__ == "documented_function"

@@ -185,6 +185,4 @@ CONTENT_TYPES = ["text", "code", "reasoning", "conversation"]
 pytest_plugins = [
     "pytest_asyncio",
     "pytest_mock",
-    "pytest_benchmark",
-    "pytest_cov",
 ]

@@ -105,20 +105,20 @@ class TokenFilterStage(FilterStage):
     
     def _process_impl(self, content: str, context: Dict[str, Any]) -> tuple[str, bool, List[str]]:
         """Filter out blocked tokens."""
-        words = content.lower().split()
+        import re
         blocked_found = []
+        modified_content = content
         
         for token in self.blocked_tokens:
-            if token in words:
+            # Case-insensitive search and replace
+            pattern = re.compile(re.escape(token), re.IGNORECASE)
+            if pattern.search(content):
                 blocked_found.append(token)
+                modified_content = pattern.sub("[FILTERED]", modified_content)
         
         if blocked_found:
             self.metrics["filtered"] += 1
-            # Replace blocked tokens with [FILTERED]
-            for token in blocked_found:
-                content = content.replace(token, "[FILTERED]")
-            
-            return content, True, [f"blocked_token:{token}" for token in blocked_found]
+            return modified_content, True, [f"blocked_token:{token}" for token in blocked_found]
         
         return content, False, []
 
@@ -284,10 +284,10 @@ class SafePathFilter:
             )
             
             # Calculate safety score
-            safety_score = self._calculate_safety_score(request.content, reasons)
+            safety_score = self._calculate_safety_score(request.content, reasons, start_time)
             
             # Create result
-            processing_time = int((time.time() - start_time) * 1000)
+            processing_time = max(1, int((time.time() - start_time) * 1000))
             
             result = FilterResult(
                 filtered_content=filtered_content,
@@ -353,7 +353,7 @@ class SafePathFilter:
             # Force garbage collection
             gc.collect()
     
-    def _calculate_safety_score(self, content: str, reasons: List[str]) -> SafetyScore:
+    def _calculate_safety_score(self, content: str, reasons: List[str], start_time: float = None) -> SafetyScore:
         """Calculate overall safety score based on filtering results."""
         base_score = 1.0  # Start with safe assumption
         max_penalty = 0.0  # Track the highest penalty applied
@@ -425,12 +425,15 @@ class SafePathFilter:
         else:
             severity = Severity.CRITICAL
         
+        processing_time_ms = max(1, int((time.time() - start_time) * 1000)) if start_time else 1
+        
         return SafetyScore(
             overall_score=base_score,
             confidence=0.8,  # TODO: Calculate based on detector confidence
             is_safe=is_safe,
             detected_patterns=[r.split(':')[1] if ':' in r else r for r in reasons],
             severity=severity,
+            processing_time_ms=processing_time_ms,
         )
     
     def _log_operation(self, request: FilterRequest, result: FilterResult) -> None:
