@@ -80,6 +80,145 @@ except ImportError as e:
     ExperimentConfig = None
     ExperimentResult = None
 
+# Generation 1 Enhanced Integrations
+try:
+    from .enhanced_integrations import (
+        OpenAIIntegration,
+        LangChainIntegration, 
+        AutoGenIntegration,
+        StreamingIntegration,
+        IntegrationFactory,
+        IntegrationConfig,
+        BaseLLMIntegration,
+        wrap_openai_client,
+        wrap_langchain_llm,
+        wrap_autogen_agent,
+        create_safe_streaming_filter,
+    )
+    from .realtime_monitoring import (
+        SafePathMonitor,
+        MonitoringConfig,
+        MetricsCollector,
+        AlertManager,
+        AlertRule,
+        Alert,
+        MetricPoint,
+        get_global_monitor,
+        configure_monitoring,
+        monitor_filter_operation,
+    )
+    ENHANCED_INTEGRATIONS_AVAILABLE = True
+    REALTIME_MONITORING_AVAILABLE = True
+except ImportError as e:
+    # Graceful fallback when enhanced features not available
+    ENHANCED_INTEGRATIONS_AVAILABLE = False
+    REALTIME_MONITORING_AVAILABLE = False
+    OpenAIIntegration = None
+    LangChainIntegration = None
+    AutoGenIntegration = None
+    StreamingIntegration = None
+    IntegrationFactory = None
+    IntegrationConfig = None
+    BaseLLMIntegration = None
+    wrap_openai_client = None
+    wrap_langchain_llm = None
+    wrap_autogen_agent = None
+    create_safe_streaming_filter = None
+    SafePathMonitor = None
+    MonitoringConfig = None
+    MetricsCollector = None
+    AlertManager = None
+    AlertRule = None
+    Alert = None
+    MetricPoint = None
+    get_global_monitor = None
+    configure_monitoring = None
+    monitor_filter_operation = None
+
+# Generation 2 Robust Features
+try:
+    from .robust_error_handling import (
+        RobustErrorHandler,
+        CircuitBreaker,
+        ErrorClassifier,
+        RetryManager,
+        FallbackManager,
+        CircuitBreakerConfig,
+        RetryConfig,
+        FallbackConfig,
+    )
+    from .health_monitoring import (
+        HealthMonitor,
+        SystemHealthChecker,
+        HealthCheckResult,
+        HealthStatus,
+        HealthMetrics,
+    )
+    from .robust_security import (
+        SecurityHardening,
+        InputValidator,
+        ThreatDetector,
+        SecurityConfig,
+        ThreatLevel,
+        SecurityViolation,
+    )
+    GENERATION_2_AVAILABLE = True
+    ROBUST_ERROR_HANDLING_AVAILABLE = True
+    HEALTH_MONITORING_AVAILABLE = True
+    SECURITY_HARDENING_AVAILABLE = True
+except ImportError as e:
+    GENERATION_2_AVAILABLE = False
+    ROBUST_ERROR_HANDLING_AVAILABLE = False
+    HEALTH_MONITORING_AVAILABLE = False
+    SECURITY_HARDENING_AVAILABLE = False
+    RobustErrorHandler = None
+    CircuitBreaker = None
+    ErrorClassifier = None
+    RetryManager = None
+    FallbackManager = None
+    CircuitBreakerConfig = None
+    RetryConfig = None
+    FallbackConfig = None
+    HealthMonitor = None
+    SystemHealthChecker = None
+    HealthCheckResult = None
+    HealthStatus = None
+    HealthMetrics = None
+    SecurityHardening = None
+    InputValidator = None
+    ThreatDetector = None
+    SecurityConfig = None
+    ThreatLevel = None
+    SecurityViolation = None
+
+# Generation 3 Performance Optimization
+try:
+    from .performance_optimization import (
+        IntelligentCache,
+        CacheStrategy,
+        CacheConfig,
+        ConcurrentProcessor,
+        ProcessingConfig,
+        AdaptivePerformanceTuner,
+        TuningConfig,
+        HighPerformanceFilterEngine,
+        OptimizationConfig,
+    )
+    GENERATION_3_AVAILABLE = True
+    PERFORMANCE_OPTIMIZATION_AVAILABLE = True
+except ImportError as e:
+    GENERATION_3_AVAILABLE = False
+    PERFORMANCE_OPTIMIZATION_AVAILABLE = False
+    IntelligentCache = None
+    CacheStrategy = None
+    CacheConfig = None
+    ConcurrentProcessor = None
+    ProcessingConfig = None
+    AdaptivePerformanceTuner = None
+    TuningConfig = None
+    HighPerformanceFilterEngine = None
+    OptimizationConfig = None
+
 # Generation 5 enhancements (conditionally imported)
 try:
     from .generation_5_lite import (
@@ -172,6 +311,66 @@ __all__ = [
     "ResearchReportGenerator",
     "ExperimentConfig",
     "ExperimentResult",
+    # Generation 1 Enhanced Integrations
+    "ENHANCED_INTEGRATIONS_AVAILABLE",
+    "REALTIME_MONITORING_AVAILABLE",
+    "OpenAIIntegration",
+    "LangChainIntegration", 
+    "AutoGenIntegration",
+    "StreamingIntegration",
+    "IntegrationFactory",
+    "IntegrationConfig",
+    "BaseLLMIntegration",
+    "wrap_openai_client",
+    "wrap_langchain_llm",
+    "wrap_autogen_agent",
+    "create_safe_streaming_filter",
+    "SafePathMonitor",
+    "MonitoringConfig",
+    "MetricsCollector",
+    "AlertManager",
+    "AlertRule",
+    "Alert",
+    "MetricPoint",
+    "get_global_monitor",
+    "configure_monitoring",
+    "monitor_filter_operation",
+    # Generation 2 Robust Features
+    "GENERATION_2_AVAILABLE",
+    "ROBUST_ERROR_HANDLING_AVAILABLE",
+    "HEALTH_MONITORING_AVAILABLE",
+    "SECURITY_HARDENING_AVAILABLE",
+    "RobustErrorHandler",
+    "CircuitBreaker",
+    "ErrorClassifier",
+    "RetryManager",
+    "FallbackManager",
+    "CircuitBreakerConfig",
+    "RetryConfig",
+    "FallbackConfig",
+    "HealthMonitor",
+    "SystemHealthChecker",
+    "HealthCheckResult",
+    "HealthStatus",
+    "HealthMetrics",
+    "SecurityHardening",
+    "InputValidator",
+    "ThreatDetector",
+    "SecurityConfig",
+    "ThreatLevel",
+    "SecurityViolation",
+    # Generation 3 Performance Optimization
+    "GENERATION_3_AVAILABLE",
+    "PERFORMANCE_OPTIMIZATION_AVAILABLE",
+    "IntelligentCache",
+    "CacheStrategy",
+    "CacheConfig",
+    "ConcurrentProcessor",
+    "ProcessingConfig",
+    "AdaptivePerformanceTuner",
+    "TuningConfig",
+    "HighPerformanceFilterEngine",
+    "OptimizationConfig",
     # Generation 5 capabilities
     "GENERATION_5_AVAILABLE",
     "MULTIMODAL_PROCESSING_AVAILABLE", 
