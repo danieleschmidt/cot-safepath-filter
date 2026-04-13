@@ -115,7 +115,7 @@ integrations = [
     "autogen-agentchat>=0.1.0",
 ]
 docs = [
-    "mkdocs>=1.5.0",
+    "mkdocs>=1.6.1",
     "mkdocs-material>=9.1.0",
     "mkdocs-mermaid2-plugin>=1.1.0",
     "mkdocstrings[python]>=0.22.0",
